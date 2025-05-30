@@ -62,7 +62,7 @@ int
   enableLedAddr = 99,         // addr 91 - 92 (2 byte)
   enablePotAddr = 103,         // addr 93 - 94 (2 byte)
   enableButtonAddr = 107,      // addr 95 - 96 (2 byte)
-  enableTiltSensorAddr = 111;  // addr 97 - 98 (2 byte)
+  enableTiltSensorAddr = 111;  // addr 97 - 98 (2 byte)asd
 
 int tones[] = { 300, 400, 500, 600, 700, 800, 900, 1000 };
 int eepromAddress[] = { servoMAAddress, servoMIAAddress, servoODAddress, servoCDAddress, ssidAddress, passwordAddress, enableServoAddr, enableBuzzerAddr, enableLedAddr, enablePotAddr, enableButtonAddr, enableTiltSensorAddr };
