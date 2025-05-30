@@ -4,7 +4,7 @@
 #include <WiFiUdp.h>
 #include <EEPROM.h>
 #include <f:\ivan\Arduino\libraries\2820675-bbe995aa22826a8fbbb6b56ccd56513f9db6cb00\pitches.h>
-
+// halo
 #if defined(ESP32)
 #include <WiFi.h>
 #elif defined(ESP8266)
@@ -62,7 +62,7 @@ int
   enableLedAddr = 99,         // addr 91 - 92 (2 byte)
   enablePotAddr = 103,         // addr 93 - 94 (2 byte)
   enableButtonAddr = 107,      // addr 95 - 96 (2 byte)
-  enableTiltSensorAddr = 111;  // addr 97 - 98 (2 byte)asd
+  enableTiltSensorAddr = 111;  // addr 97 - 98 (2 byte)
 
 int tones[] = { 300, 400, 500, 600, 700, 800, 900, 1000 };
 int eepromAddress[] = { servoMAAddress, servoMIAAddress, servoODAddress, servoCDAddress, ssidAddress, passwordAddress, enableServoAddr, enableBuzzerAddr, enableLedAddr, enablePotAddr, enableButtonAddr, enableTiltSensorAddr };
