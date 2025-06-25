@@ -1,0 +1,12 @@
+{
+	"folders": [
+		{
+			"path": "../.."
+		},
+		{
+			"name": "FEEDO_main_PIO",
+			"path": ".."
+		}
+	],
+	"settings": {}
+}
