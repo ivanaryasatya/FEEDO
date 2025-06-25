@@ -140,6 +140,7 @@ CommandData cmd;
 
 // --------------------------------- functions ---------------------------------//
 
+// example OOOOOOOOOO_codeMarker();
 void OOOOOOOOOO_codeMarker(byte marker) {
   Serial.print(marker);
   Serial.println("========");
@@ -1112,6 +1113,7 @@ String getAllEeprom() {
 
 // handle OTA
 void otaHandle() {
+  OOOOOOOOOO_codeMarker(1);
   static bool otaInitialized = false;
 
   if (currentPos == 5) {
@@ -1153,6 +1155,7 @@ void otaHandle() {
       Serial.println(WiFi.softAPIP());
       otaIsActive = true;
       otaInitialized = true;
+      OOOOOOOOOO_codeMarker(2);
     }
     if (otaIsActive) {
       ArduinoOTA.handle();
@@ -1210,19 +1213,21 @@ void setup() {
 }
 
 void loop() {
+  OOOOOOOOOO_codeMarker(3);
 
   ifPrintln("loop");
   wifiHandle(wifiSsid, wifiPassword, false);
   loopRate();
 
   if (lastWifiStatus != isWifiConnect && isWifiConnect) {
+    OOOOOOOOOO_codeMarker(11);
     if (Firebase.signUp(&config, &auth, "", "")) {
       Serial.println("firebase signup berhasil");
       signupOK = true;
     } else {
       Serial.printf("%s\n", config.signer.signupError.message.c_str());
     }
-
+    OOOOOOOOOO_codeMarker(12);
     config.token_status_callback = tokenStatusCallback;
     Firebase.begin(&config, &auth);
     Firebase.reconnectWiFi(true);
@@ -1239,8 +1244,10 @@ void loop() {
   }
 
   // timeClient update
+  OOOOOOOOOO_codeMarker(4);
   timeClient.update();
   if (millis() - currentTimeM >= 1000) {
+    OOOOOOOOOO_codeMarker(5);
 
     time_t epochTime = timeClient.getEpochTime();  // Get epoch time
     struct tm* ptm = gmtime((time_t*)&epochTime);  // Convert epoch time to struct tm
@@ -1308,6 +1315,7 @@ void loop() {
   tiltSensor(completeTime);
   potentiometer(currentTime, completeTime);
 
+  OOOOOOOOOO_codeMarker(6);
   // cek apakah firebase siap
   if (Firebase.ready() && signupOK) {
     fbdConnected = true;
@@ -1315,8 +1323,10 @@ void loop() {
     fbdConnected = false;
   }
 
+  OOOOOOOOOO_codeMarker(7);
   // firebase database
   if (isWifiConnect && fbdConnected) {
+    OOOOOOOOOO_codeMarker(8);
     // mobile app update
     if (millis() - prevUpMillis >= 3000) {
       if (Firebase.RTDB.getBool(&fbdo, "/mobileLatestUp")) {
@@ -1722,6 +1732,7 @@ void loop() {
       firebaseUpdate = false;
       wait(100);
     }
+    OOOOOOOOOO_codeMarker(9);
   }
 
   // led dan servo sesuai waktu
@@ -1745,6 +1756,7 @@ void loop() {
   }
   otaHandle();
   yield();
+  OOOOOOOOOO_codeMarker(10);
 }
 
 
