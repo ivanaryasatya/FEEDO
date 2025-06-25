@@ -100,6 +100,7 @@ bool
   enablePot = true,
   enableButton = true,
   lastWifiStatus = false,
+  otaIsActive = false,
   enableTiltSensor = true;
 unsigned long
   bCooldownStart = 0,
@@ -865,7 +866,7 @@ void wait(unsigned long time) {
 }
 
 // handle wifi otomatis
-bool handleWiFi(String wifi, String password, bool startConnect) {
+bool wifiHandle(String wifi, String password, bool startConnect) {
   static bool printInfo = true;
   static int handleTimeout = 0;
   if (startConnect) {
@@ -1105,6 +1106,59 @@ String getAllEeprom() {
   return result;
 }
 
+// handle OTA
+void otaHandle() {
+  static bool otaInitialized = false;
+
+  if (currentPos == 5) {
+    if (!otaInitialized) {
+      WiFi.softAP(APSsid, APPassword);
+
+      ArduinoOTA.onStart([]() {
+        String type;
+        if (ArduinoOTA.getCommand() == U_FLASH) {
+          type = "sketch";
+        } else {
+          type = "filesystem";
+        }
+        Serial.println("Start updating " + type);
+      });
+      ArduinoOTA.onEnd([]() {
+        Serial.println("\nEnd");
+      });
+      ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+        Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
+      });
+      ArduinoOTA.onError([](ota_error_t error) {
+        Serial.printf("Error[%u]: ", error);
+        if (error == OTA_AUTH_ERROR) {
+          Serial.println("Auth Failed");
+        } else if (error == OTA_BEGIN_ERROR) {
+          Serial.println("Begin Failed");
+        } else if (error == OTA_CONNECT_ERROR) {
+          Serial.println("Connect Failed");
+        } else if (error == OTA_RECEIVE_ERROR) {
+          Serial.println("Receive Failed");
+        } else if (error == OTA_END_ERROR) {
+          Serial.println("End Failed");
+        }
+      });
+      ArduinoOTA.begin();
+      Serial.println("Ready");
+      Serial.print("IP address: ");
+      Serial.println(WiFi.softAPIP());
+      otaIsActive = true;
+      otaInitialized = true;
+    }
+    if (otaIsActive) {
+      ArduinoOTA.handle();
+    }
+  } else {
+    otaIsActive = false;
+    otaInitialized = false;
+  }
+}
+
 // --------------------------------- functions ---------------------------------//
 
 
@@ -1126,7 +1180,7 @@ void setup() {
 
   wifiSsid = "ADAN"; //readStringFromEEPROM(ssidAddress);
   wifiPassword = "titanasri"; //readStringFromEEPROM(passwordAddress);
-  handleWiFi(wifiSsid, wifiPassword, true);
+  wifiHandle(wifiSsid, wifiPassword, true);
 
   config.api_key = API_KEY;
   config.database_url = DATABASE_URL;
@@ -1154,7 +1208,8 @@ void setup() {
 void loop() {
 
   ifPrintln("loop");
-  handleWiFi(wifiSsid, wifiPassword, false);
+  wifiHandle(wifiSsid, wifiPassword, false);
+  otaHandle();
   loopRate();
 
   // if (isWifiConnect) {
@@ -1444,14 +1499,14 @@ void loop() {
             }
             WiFi.disconnect();
             wait(1000);
-            handleWiFi(cmdValue1, cmdValue2, true);
+            wifiHandle(cmdValue1, cmdValue2, true);
 
             if (WiFi.status() == WL_CONNECTED) {
               fbdCommandOutput("new wifi connected");
               saveStringToEEPROM(ssidAddress, cmdValue1);
               saveStringToEEPROM(passwordAddress, cmdValue2);
             } else {
-              handleWiFi(wifiSsid, wifiPassword, true);
+              wifiHandle(wifiSsid, wifiPassword, true);
               fbdCommandOutput("new wifi not connected, connected to last wifi connection");
             }
           } else if (parseCommand == "esp.delay") {  // delay
