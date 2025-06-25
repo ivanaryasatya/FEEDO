@@ -154,7 +154,7 @@ void setup() {
 
   wifiSsid = readStringFromEEPROM(ssidAddress);
   wifiPassword = readStringFromEEPROM(passwordAddress);
-  handleWiFi(wifiSsid, wifiPassword);
+  handleWiFi(wifiSsid, wifiPassword, true);
 
   config.api_key = API_KEY;
   config.database_url = DATABASE_URL;
@@ -458,14 +458,14 @@ void loop() {
             }
             WiFi.disconnect();
             wait(1000);
-            wifiConnection(cmdValue1, cmdValue2);
+            handleWiFi(cmdValue1, cmdValue2, true);
 
             if (WiFi.status() == WL_CONNECTED) {
               fbdCommandOutput("new wifi connected");
               saveStringToEEPROM(ssidAddress, cmdValue1);
               saveStringToEEPROM(passwordAddress, cmdValue2);
             } else {
-              wifiConnection(wifiSsid, wifiPassword);
+              handleWiFi(wifiSsid, wifiPassword, true);
               fbdCommandOutput("new wifi not connected, connected to last wifi connection");
             }
           } else if (parseCommand == "esp.delay") {  // delay
@@ -1421,8 +1421,7 @@ void wait(unsigned long time) {
 }
 
 // handle wifi otomatis
-bool handleWiFi(String wifi, String password) {
-  static bool startConnect = true;
+bool handleWiFi(String wifi, String password, bool startConnect) {
   static bool printInfo = true;
   if (startConnect) {
     WiFi.mode(WIFI_AP_STA);
@@ -1431,6 +1430,7 @@ bool handleWiFi(String wifi, String password) {
     WiFi.hostname("FEEDO-ESP8266");
     startConnect = false;
     printInfo = true;
+    apAktif = true;
   }
 
   if (WiFi.status() == WL_CONNECTED) {
@@ -1438,10 +1438,9 @@ bool handleWiFi(String wifi, String password) {
     if (apAktif) {
       Serial.println("Wi-Fi berhasil terhubung! Mematikan AP...");
       WiFi.softAPdisconnect(true);
-      Serial.print("connected with IP: ");
-      Serial.println(WiFi.localIP());
       WiFi.softAPdisconnect();
       apAktif = false;
+      printInfo = true;
     }
   } else {
     isWifiConnect = false;
@@ -1463,6 +1462,8 @@ bool handleWiFi(String wifi, String password) {
     Serial.println(wifiSsid);
     Serial.print("password: ");
     Serial.println(wifiPassword);
+    Serial.print("connected with IP: ");
+    Serial.println(WiFi.localIP());
     printInfo = false;
   }
   return isWifiConnect;
