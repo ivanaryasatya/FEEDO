@@ -137,6 +137,36 @@ struct CommandData {
 };
 CommandData cmd;
 
+// --------------------------------- functions ---------------------------------//
+
+String readStringFromEEPROM(int addr) {
+  int i;
+  for (i = 0; i < maxLength; i++) {
+    buffer[i] = EEPROM.read(addr + i);
+    if (buffer[i] == 0) break;
+  }
+  buffer[i] = '\0';
+  Serial.print("Membaca EEPROM [");
+  Serial.print(addr);
+  Serial.print("] = ");
+  Serial.println(String(buffer));
+  return String(buffer);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 void setup() {
   Serial.begin(9600);
   EEPROM.begin(EEPROM_SIZE);
@@ -1433,7 +1463,7 @@ bool handleWiFi(String wifi, String password, bool startConnect) {
     apAktif = true;
   }
 
-  if (WiFi.status() == WL_CONNECTED) {
+  if (WiFi.status() == WL_CONNECTED) { // koneksi berhasil
     isWifiConnect = true;
     if (apAktif) {
       Serial.println("Wi-Fi berhasil terhubung! Mematikan AP...");
@@ -1442,7 +1472,7 @@ bool handleWiFi(String wifi, String password, bool startConnect) {
       apAktif = false;
       printInfo = true;
     }
-  } else {
+  } else { //---------------------------- koneksi gagal
     isWifiConnect = false;
     if (!apAktif) {
       Serial.println("Wi-Fi terputus! Mengaktifkan AP...");
@@ -1615,20 +1645,6 @@ void saveStringToEEPROM(int addr, String data) {
   }
   EEPROM.write(addr + len, 0);
   EEPROM.commit();
-}
-
-String readStringFromEEPROM(int addr) {
-  int i;
-  for (i = 0; i < maxLength; i++) {
-    buffer[i] = EEPROM.read(addr + i);
-    if (buffer[i] == 0) break;
-  }
-  buffer[i] = '\0';
-  Serial.print("Membaca EEPROM [");
-  Serial.print(addr);
-  Serial.print("] = ");
-  Serial.println(String(buffer));
-  return String(buffer);
 }
 
 // mendapatkan semua data EEPROM
