@@ -68,7 +68,7 @@ int
 
 const unsigned int tones[] = { 300, 400, 500, 600, 700, 800, 900, 1000 };
 byte eepromAddress[] = { servoMAAddress, servoMIAAddress, servoODAddress, servoCDAddress, ssidAddress, passwordAddress, enableServoAddr, enableBuzzerAddr, enableLedAddr, enablePotAddr, enableButtonAddr, enableTiltSensorAddr };
-
+float averageHZ = 225;
 bool
   signupOK = false,
   serialPrint = false,
@@ -99,6 +99,7 @@ bool
   enableLed = true,
   enablePot = true,
   enableButton = true,
+  lastWifiStatus = false,
   enableTiltSensor = true;
 unsigned long
   bCooldownStart = 0,
@@ -121,7 +122,6 @@ String
   completeTime = "",
   currentMonthStr,
   monthDayStr,
-  averageHZ = "",
   wifiSsid = "",
   wifiPassword = "",
   APSsid = "FEEDO-ESP8266-AP",
@@ -820,7 +820,7 @@ float loopRate() {
 
     lastMillis = millis();
     totalLoops = 0;
-    averageHZ = String(rataHz);
+    averageHZ = rataHz;
   }
   return rataHz;
 }
@@ -866,7 +866,6 @@ void wait(unsigned long time) {
 
 // handle wifi otomatis
 bool handleWiFi(String wifi, String password, bool startConnect) {
-  Serial.println("! masuk handleWiFi");
   static bool printInfo = true;
   static int handleTimeout = 0;
   if (startConnect) {
@@ -890,7 +889,6 @@ bool handleWiFi(String wifi, String password, bool startConnect) {
   }
 
   if (WiFi.status() == WL_CONNECTED) { // koneksi berhasil
-    Serial.println("! Koneksi berhasil!");
     isWifiConnect = true;
     if (apAktif) {
       Serial.println("Wi-Fi berhasil terhubung! Mematikan AP...");
@@ -900,7 +898,6 @@ bool handleWiFi(String wifi, String password, bool startConnect) {
     }
   } else { //---------------------------- koneksi gagal
     isWifiConnect = false;
-    Serial.println("! Koneksi gagal!");
     if (!apAktif) {
       Serial.println("Wi-Fi terputus! Mengaktifkan AP...");
       WiFi.softAP(APSsid, APPassword);
@@ -908,7 +905,6 @@ bool handleWiFi(String wifi, String password, bool startConnect) {
     }
     static unsigned long lastReconnect = 0;
     if (millis() - lastReconnect > 10000) {  // coba tiap 10 detik
-      Serial.println("! coba 10d");
       Serial.println("Mencoba koneksi ulang ke Wi-Fi...");
       WiFi.begin(wifiSsid, wifiPassword);
       while (WiFi.status() != WL_CONNECTED) {
@@ -1135,21 +1131,7 @@ void setup() {
   config.api_key = API_KEY;
   config.database_url = DATABASE_URL;
 
-  if (isWifiConnect) {
-    if (Firebase.signUp(&config, &auth, "", "")) {
-      Serial.println("firebase signup berhasil");
-      signupOK = true;
-    } else {
-      Serial.printf("%s\n", config.signer.signupError.message.c_str());
-    }
-
-    config.token_status_callback = tokenStatusCallback;
-    Firebase.begin(&config, &auth);
-    Firebase.reconnectWiFi(true);
-    timeClient.begin();
-    timeClient.setTimeOffset(25200);
-    digitalWrite(LED_BUILTIN, HIGH);
-  }
+  
 
   servoMaxAngle = accessEEPROM(servoMAAddress, -1);
   servoMinAngle = accessEEPROM(servoMIAAddress, -1);
@@ -1172,9 +1154,26 @@ void setup() {
 void loop() {
 
   ifPrintln("loop");
-  Serial.println("! loop hnl wifi!");
   handleWiFi(wifiSsid, wifiPassword, false);
   loopRate();
+
+  // if (isWifiConnect) {
+  if (lastWifiStatus != isWifiConnect && isWifiConnect) {
+    if (Firebase.signUp(&config, &auth, "", "")) {
+      Serial.println("firebase signup berhasil");
+      signupOK = true;
+    } else {
+      Serial.printf("%s\n", config.signer.signupError.message.c_str());
+    }
+
+    config.token_status_callback = tokenStatusCallback;
+    Firebase.begin(&config, &auth);
+    Firebase.reconnectWiFi(true);
+    timeClient.begin();
+    timeClient.setTimeOffset(25200);
+    digitalWrite(LED_BUILTIN, HIGH);
+    lastWifiStatus = isWifiConnect;
+  }
 
   // buzzer start
   if (buzzerStart) {
@@ -1261,7 +1260,6 @@ void loop() {
 
   // firebase database
   if (isWifiConnect && fbdConnected) {
-    Serial.println("! masuk firebase");
     // mobile app update
     if (millis() - prevUpMillis >= 3000) {
       if (Firebase.RTDB.getBool(&fbdo, "/mobileLatestUp")) {
@@ -1280,6 +1278,17 @@ void loop() {
         lastStart = false;
       }
     }
+
+    // update loop rate
+      if (millis() - prevLoopRateM >= 3000) {
+        if (Firebase.RTDB.setFloat(&fbdo, "/loopRate", averageHZ)) {
+          ifPrintln("fb set loop rate");
+        } else {
+          fbdoError();
+        }
+        prevLoopRateM = millis();
+      }
+
 
     if (firebaseUpdate) {
       Serial.println("firebase update");
@@ -1652,15 +1661,6 @@ void loop() {
         }
       }
 
-      // update loop rate
-      if (millis() - prevLoopRateM >= 3000) {
-        if (Firebase.RTDB.setInt(&fbdo, "/loopRate", averageHZ)) {
-          ifPrintln("fb set loop rate");
-        } else {
-          fbdoError();
-        }
-        prevLoopRateM = millis();
-      }
 
       firebaseUpdate = false;
       wait(100);
