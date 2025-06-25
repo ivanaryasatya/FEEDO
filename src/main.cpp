@@ -140,6 +140,11 @@ CommandData cmd;
 
 // --------------------------------- functions ---------------------------------//
 
+void OOOOOOOOOO_codeMarker(byte marker) {
+  Serial.print(marker);
+  Serial.println("========");
+}
+
 String readStringFromEEPROM(int addr) {
   int i;
   for (i = 0; i < maxLength; i++) {
@@ -803,6 +808,7 @@ void loopRate() {
 }
 */
 
+// loop rate
 float loopRate() {
   static unsigned long lastMillis = 0;
   static int loopCounter = 0;
@@ -815,17 +821,16 @@ float loopRate() {
   if (millis() - lastMillis >= intervalDetik * 1000) {
     float rataHz = (float)totalLoops / intervalDetik;
 
-    Serial.print("Loop rate ");
-    Serial.print(rataHz, 2);
-    Serial.println(" Hz");
-
+    if (serialPrint) {
+      Serial.print("Loop rate ");
+      Serial.print(rataHz, 2);
+    }
     lastMillis = millis();
     totalLoops = 0;
     averageHZ = rataHz;
   }
   return rataHz;
 }
-
 
 void playMelody(int melody[], int durations[], int size) {
   for (int note = 0; note < size; note++) {
@@ -878,8 +883,7 @@ bool wifiHandle(String wifi, String password, bool startConnect) {
       Serial.print(".");
       wait(200);
       handleTimeout++;
-      if (handleTimeout > 20) { // timeout 10 detik
-        Serial.println(".");
+      if (handleTimeout > 300) {
         handleTimeout = 0;
         break;
       }
@@ -1178,8 +1182,8 @@ void setup() {
   pinMode(LED_BUILTIN, OUTPUT);
   pinMode(tiltSensorPin, INPUT_PULLUP);
 
-  wifiSsid = "ADAN"; //readStringFromEEPROM(ssidAddress);
-  wifiPassword = "titanasri"; //readStringFromEEPROM(passwordAddress);
+  wifiSsid = readStringFromEEPROM(ssidAddress);
+  wifiPassword = readStringFromEEPROM(passwordAddress);
   wifiHandle(wifiSsid, wifiPassword, true);
 
   config.api_key = API_KEY;
@@ -1209,10 +1213,8 @@ void loop() {
 
   ifPrintln("loop");
   wifiHandle(wifiSsid, wifiPassword, false);
-  otaHandle();
   loopRate();
 
-  // if (isWifiConnect) {
   if (lastWifiStatus != isWifiConnect && isWifiConnect) {
     if (Firebase.signUp(&config, &auth, "", "")) {
       Serial.println("firebase signup berhasil");
@@ -1741,6 +1743,7 @@ void loop() {
       cooldownK = false;
     }
   }
+  otaHandle();
   yield();
 }
 
