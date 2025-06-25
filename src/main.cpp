@@ -92,7 +92,7 @@ bool
   over = true,
   potChangeLed = true,
   potLedW = true,
-  isWifiConnect = true,
+  isWifiConnect = false,
   fbdConnected = false,
   lastStart = true,
   enableServo = true,
@@ -865,6 +865,7 @@ void wait(unsigned long time) {
 
 // handle wifi otomatis
 bool handleWiFi(String wifi, String password, bool startConnect) {
+  Serial.println("! masuk handleWiFi");
   static bool printInfo = true;
   static int handleTimeout = 0;
   if (startConnect) {
@@ -877,6 +878,7 @@ bool handleWiFi(String wifi, String password, bool startConnect) {
       wait(200);
       handleTimeout++;
       if (handleTimeout > 20) { // timeout 10 detik
+        Serial.println(".");
         handleTimeout = 0;
         break;
       }
@@ -887,6 +889,7 @@ bool handleWiFi(String wifi, String password, bool startConnect) {
   }
 
   if (WiFi.status() == WL_CONNECTED) { // koneksi berhasil
+    Serial.println("! Koneksi berhasil!");
     isWifiConnect = true;
     if (apAktif) {
       Serial.println("Wi-Fi berhasil terhubung! Mematikan AP...");
@@ -896,6 +899,7 @@ bool handleWiFi(String wifi, String password, bool startConnect) {
     }
   } else { //---------------------------- koneksi gagal
     isWifiConnect = false;
+    Serial.println("! Koneksi gagal!");
     if (!apAktif) {
       Serial.println("Wi-Fi terputus! Mengaktifkan AP...");
       WiFi.softAP(APSsid, APPassword);
@@ -903,6 +907,7 @@ bool handleWiFi(String wifi, String password, bool startConnect) {
     }
     static unsigned long lastReconnect = 0;
     if (millis() - lastReconnect > 10000) {  // coba tiap 10 detik
+      Serial.println("! coba 10d");
       Serial.println("Mencoba koneksi ulang ke Wi-Fi...");
       WiFi.begin(wifiSsid, wifiPassword);
       while (WiFi.status() != WL_CONNECTED) {
@@ -910,6 +915,7 @@ bool handleWiFi(String wifi, String password, bool startConnect) {
         wait(200);
         handleTimeout++;
         if (handleTimeout > 20) {
+          Serial.println(".");
           handleTimeout = 0;
           break;
         }
@@ -1165,6 +1171,7 @@ void setup() {
 void loop() {
 
   ifPrintln("loop");
+  Serial.println("! loop hnl wifi!");
   handleWiFi(wifiSsid, wifiPassword, false);
   averageHZ = loopRate();
 
@@ -1253,7 +1260,7 @@ void loop() {
 
   // firebase database
   if (isWifiConnect && fbdConnected) {
-
+    Serial.println("! masuk firebase");
     // mobile app update
     if (millis() - prevUpMillis >= 3000) {
       if (Firebase.RTDB.getBool(&fbdo, "/mobileLatestUp")) {
