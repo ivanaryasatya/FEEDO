@@ -92,7 +92,7 @@ bool
   over = true,
   potChangeLed = true,
   potLedW = true,
-  isWifiConnect = false,
+  isWifiConnect = true,
   fbdConnected = false,
   lastStart = true,
   enableServo = true,
@@ -866,11 +866,21 @@ void wait(unsigned long time) {
 // handle wifi otomatis
 bool handleWiFi(String wifi, String password, bool startConnect) {
   static bool printInfo = true;
+  static int handleTimeout = 0;
   if (startConnect) {
     WiFi.mode(WIFI_AP_STA);
-    WiFi.begin(wifiSsid, wifiPassword);
     WiFi.softAP(APSsid, APPassword);
     WiFi.hostname("FEEDO-ESP8266");
+    WiFi.begin(wifiSsid, wifiPassword);
+    while (WiFi.status() != WL_CONNECTED) {
+      Serial.print(".");
+      wait(200);
+      handleTimeout++;
+      if (handleTimeout > 20) { // timeout 10 detik
+        handleTimeout = 0;
+        break;
+      }
+    }
     startConnect = false;
     printInfo = true;
     apAktif = true;
@@ -895,6 +905,16 @@ bool handleWiFi(String wifi, String password, bool startConnect) {
     if (millis() - lastReconnect > 10000) {  // coba tiap 10 detik
       Serial.println("Mencoba koneksi ulang ke Wi-Fi...");
       WiFi.begin(wifiSsid, wifiPassword);
+      while (WiFi.status() != WL_CONNECTED) {
+        Serial.print(".");
+        wait(200);
+        handleTimeout++;
+        if (handleTimeout > 20) {
+          handleTimeout = 0;
+          break;
+        }
+      }
+      
       lastReconnect = millis();
     }
   }
@@ -1101,8 +1121,8 @@ void setup() {
   pinMode(LED_BUILTIN, OUTPUT);
   pinMode(tiltSensorPin, INPUT_PULLUP);
 
-  wifiSsid = readStringFromEEPROM(ssidAddress);
-  wifiPassword = readStringFromEEPROM(passwordAddress);
+  wifiSsid = "ADAN"; //readStringFromEEPROM(ssidAddress);
+  wifiPassword = "titanasri"; //readStringFromEEPROM(passwordAddress);
   handleWiFi(wifiSsid, wifiPassword, true);
 
   config.api_key = API_KEY;
