@@ -59,7 +59,6 @@ byte
   enableTiltSensorAddr = 111;  // addr 97 - 98 (2 byte)
 ;
 
-float averageHZ = 0;
 int
   totalTime = 0,
   servoMaxAngle = 110,
@@ -122,6 +121,7 @@ String
   completeTime = "",
   currentMonthStr,
   monthDayStr,
+  averageHZ = "",
   wifiSsid = "",
   wifiPassword = "",
   APSsid = "FEEDO-ESP8266-AP",
@@ -820,6 +820,7 @@ float loopRate() {
 
     lastMillis = millis();
     totalLoops = 0;
+    averageHZ = String(rataHz);
   }
   return rataHz;
 }
@@ -1173,7 +1174,7 @@ void loop() {
   ifPrintln("loop");
   Serial.println("! loop hnl wifi!");
   handleWiFi(wifiSsid, wifiPassword, false);
-  averageHZ = loopRate();
+  loopRate();
 
   // buzzer start
   if (buzzerStart) {
@@ -1651,6 +1652,7 @@ void loop() {
         }
       }
 
+      // update loop rate
       if (millis() - prevLoopRateM >= 3000) {
         if (Firebase.RTDB.setInt(&fbdo, "/loopRate", averageHZ)) {
           ifPrintln("fb set loop rate");
