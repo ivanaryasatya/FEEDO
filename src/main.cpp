@@ -146,10 +146,12 @@ void OOOOOOOOOO_codeMarker(byte marker) {
   if (codeMarkerPrint) {
     return;
   }
-  const char *markerStr = "codeMarker";
-  const char *markerHighlight = "==========";
-  Serial.print(markerStr);
+  const char *markerStr = "CM";
+  const char *markerHighlight = "===";
   Serial.print(markerHighlight);
+  Serial.print(markerStr);
+  Serial.print(marker);
+  Serial.println(markerHighlight);
 }
 
 String readStringFromEEPROM(int addr) {
@@ -1068,61 +1070,61 @@ void fbdoError() {
 
 // handler firebase
 struct FirebaseHandler {
-  FirebaseData* fbdo;
+  FirebaseData* fbdo_s;
 
   void setInt(const String& path, int value) {
-    if (!Firebase.RTDB.setInt(fbdo, path, value)) {
+    if (!Firebase.RTDB.setInt(fbdo_s, path, value)) {
     } else {
-      fbdoError();
+      fbdo.errorReason();
     }
   }
   void setFloat(const String& path, float value) {
-    if (!Firebase.RTDB.setFloat(fbdo, path, value)) {
+    if (!Firebase.RTDB.setFloat(fbdo_s, path, value)) {
     } else {
-      fbdoError();
+      fbdo.errorReason();
     }
   }
   void setBool(const String& path, bool value) {
-    if (!Firebase.RTDB.setBool(fbdo, path, value)) {
+    if (!Firebase.RTDB.setBool(fbdo_s, path, value)) {
     } else {
-      fbdoError();
+      fbdo.errorReason();
     }
   }
   void setString(const String& path, const String& value) {
-    if (!Firebase.RTDB.setString(fbdo, path, value)) {
+    if (!Firebase.RTDB.setString(fbdo_s, path, value)) {
     } else {
-      fbdoError();
+      fbdo.errorReason();
     }
   }
   int getInt(const String& path) {
-    if (Firebase.RTDB.getInt(fbdo, path)) {
-      return fbdo->intData();
+    if (Firebase.RTDB.getInt(fbdo_s, path)) {
+      return fbdo_s->intData();
     } else {
-      fbdoError();
+      fbdo.errorReason();
       return -1;
     }
   }
   float getFloat(const String& path) {
-    if (Firebase.RTDB.getFloat(fbdo, path)) {
-      return fbdo->floatData();
+    if (Firebase.RTDB.getFloat(fbdo_s, path)) {
+      return fbdo_s->floatData();
     } else {
-      fbdoError();
+      fbdo.errorReason();
       return 0.0;
     }
   }
   bool getBool(const String& path) {
-    if (Firebase.RTDB.getBool(fbdo, path)) {
-      return fbdo->boolData();
+    if (Firebase.RTDB.getBool(fbdo_s, path)) {
+      return fbdo_s->boolData();
     } else {
-      fbdoError();
+      fbdo.errorReason();
       return false;
     }
   }
   String getString(const String& path) {
-    if (Firebase.RTDB.getString(fbdo, path)) {
-      return fbdo->stringData();
+    if (Firebase.RTDB.getString(fbdo_s, path)) {
+      return fbdo_s->stringData();
     } else {
-      fbdoError();
+      fbdo.errorReason();
       return "";
     }
   }
