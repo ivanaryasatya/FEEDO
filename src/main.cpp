@@ -171,13 +171,20 @@ String readStringFromEEPROM(int addr) {
 // Example: source = pot / btn, value = 0-3
 // Example: |pot,3,2025-02-03 12:30:00
 void lastFood(String source, int value, String currentTime) {
-  if (isWifiConnect == false && fbdConnected == false) {
-    return;
-  }
+  const byte maxDataLimit = 50;
+  const byte formatLength = 26;
+  const String newData = "|" + source + "," + value + "," + currentTime;
   FirebaseJsonArray fja;
-  if (Firebase.RTDB.getString(&fbdo, "/lastFood")) {
-    const int maxDataLimit = 50;
-    const int formatLength = 26;
+  String final = firebaseHandler.getString("/lastFood");
+  final = final + newData;
+  if (final.length() > (formatLength * maxDataLimit)) {
+    final = final.substring(final.length() - (formatLength * maxDataLimit), final.length());
+  }
+  firebaseHandler.setString("/lastFood", final);
+
+  /*if (Firebase.RTDB.getString(&fbdo, "/lastFood")) {
+    const byte maxDataLimit = 50;
+    const byte formatLength = 26;
     const String newData = "|" + source + "," + value + "," + currentTime;
 
     String lf = fbdo.stringData();
@@ -191,7 +198,7 @@ void lastFood(String source, int value, String currentTime) {
     } else {
       fbdoError();
     }
-  }
+  }*/
 }
 
 // servo
@@ -883,6 +890,7 @@ void wait(unsigned long time) {
 bool wifiHandle(String wifi, String password, bool startConnect) {
   static bool printInfo = true;
   static int handleTimeout = 0;
+  static bool handlerWifiStatus = false;
   if (startConnect) {
     WiFi.mode(WIFI_AP_STA);
     WiFi.softAP(APSsid, APPassword);
@@ -903,7 +911,7 @@ bool wifiHandle(String wifi, String password, bool startConnect) {
   }
 
   if (WiFi.status() == WL_CONNECTED) { // koneksi berhasil
-    isWifiConnect = true;
+    handlerWifiStatus = true;
     if (apAktif) {
       Serial.println("Wi-Fi berhasil terhubung! Mematikan AP...");
       WiFi.softAPdisconnect(true);
@@ -911,7 +919,7 @@ bool wifiHandle(String wifi, String password, bool startConnect) {
       printInfo = true;
     }
   } else { //---------------------------- koneksi gagal
-    isWifiConnect = false;
+    handlerWifiStatus = false;
     if (!apAktif) {
       Serial.println("Wi-Fi terputus! Mengaktifkan AP...");
       WiFi.softAP(APSsid, APPassword);
@@ -931,7 +939,6 @@ bool wifiHandle(String wifi, String password, bool startConnect) {
           break;
         }
       }
-      
       lastReconnect = millis();
     }
   }
@@ -945,7 +952,7 @@ bool wifiHandle(String wifi, String password, bool startConnect) {
     Serial.println(WiFi.localIP());
     printInfo = false;
   }
-  return isWifiConnect;
+  return handlerWifiStatus;
 }
 
 /*
@@ -1072,31 +1079,44 @@ void fbdoError() {
 struct FirebaseHandler {
   FirebaseData* fbdo_s;
 
-  void setInt(const String& path, int value) {
+  bool setInt(const String& path, int value) {
+    if (!isWifiConnect) return;
     if (!Firebase.RTDB.setInt(fbdo_s, path, value)) {
+      return true;
     } else {
+      return false;
       fbdo.errorReason();
     }
   }
-  void setFloat(const String& path, float value) {
+  bool setFloat(const String& path, float value) {
+    if (!isWifiConnect) return;
     if (!Firebase.RTDB.setFloat(fbdo_s, path, value)) {
+      return true;
     } else {
+      return false;
       fbdo.errorReason();
     }
   }
-  void setBool(const String& path, bool value) {
+  bool setBool(const String& path, bool value) {
+    if (!isWifiConnect) return;
     if (!Firebase.RTDB.setBool(fbdo_s, path, value)) {
+      return true;
     } else {
+      return false;
       fbdo.errorReason();
     }
   }
-  void setString(const String& path, const String& value) {
+  bool setString(const String& path, const String& value) {
+    if (!isWifiConnect) return;
     if (!Firebase.RTDB.setString(fbdo_s, path, value)) {
+      return true;
     } else {
+      return false;
       fbdo.errorReason();
     }
   }
   int getInt(const String& path) {
+    if (!isWifiConnect) return -1;
     if (Firebase.RTDB.getInt(fbdo_s, path)) {
       return fbdo_s->intData();
     } else {
@@ -1105,6 +1125,7 @@ struct FirebaseHandler {
     }
   }
   float getFloat(const String& path) {
+    if (!isWifiConnect) return 0.0;
     if (Firebase.RTDB.getFloat(fbdo_s, path)) {
       return fbdo_s->floatData();
     } else {
@@ -1113,6 +1134,7 @@ struct FirebaseHandler {
     }
   }
   bool getBool(const String& path) {
+    if (!isWifiConnect) return false;
     if (Firebase.RTDB.getBool(fbdo_s, path)) {
       return fbdo_s->boolData();
     } else {
@@ -1121,6 +1143,7 @@ struct FirebaseHandler {
     }
   }
   String getString(const String& path) {
+    if (!isWifiConnect) return "";
     if (Firebase.RTDB.getString(fbdo_s, path)) {
       return fbdo_s->stringData();
     } else {
@@ -1538,7 +1561,7 @@ void setup() {
 
   wifiSsid = readStringFromEEPROM(ssidAddress);
   wifiPassword = readStringFromEEPROM(passwordAddress);
-  wifiHandle(wifiSsid, wifiPassword, true);
+  isWifiConnect = wifiHandle(wifiSsid, wifiPassword, true);
 
   config.api_key = API_KEY;
   config.database_url = DATABASE_URL;
@@ -1567,7 +1590,7 @@ void loop() {
   OOOOOOOOOO_codeMarker(3);
 
   ifPrintln("loop");
-  wifiHandle(wifiSsid, wifiPassword, false);
+  isWifiConnect = wifiHandle(wifiSsid, wifiPassword, false);
   loopRate();
 
   if (lastWifiStatus != isWifiConnect && isWifiConnect) {
@@ -1698,18 +1721,20 @@ void loop() {
 
     // last start
     if (lastStart) {
-      if (Firebase.RTDB.setString(&fbdo, "/lastStart", completeTime)) {
-        lastStart = false;
-      }
+      firebaseHandler.setString("/lastStart", completeTime);
+      lastStart = false; 
+      /* if (Firebase.RTDB.setString(&fbdo, "/lastStart", completeTime)) {
+      }*/
     }
 
     // update loop rate
       if (millis() - prevLoopRateM >= 3000) {
-        if (Firebase.RTDB.setFloat(&fbdo, "/loopRate", averageHZ)) {
+        firebaseHandler.setFloat("/loopRate", averageHZ);
+        /*if (Firebase.RTDB.setFloat(&fbdo, "/loopRate", averageHZ)) {
           ifPrintln("fb set loop rate");
         } else {
           fbdoError();
-        }
+        }*/
         prevLoopRateM = millis();
       }
 
@@ -1718,15 +1743,23 @@ void loop() {
       Serial.println("firebase update");
 
       // update tone buzzer
-      if (Firebase.RTDB.getInt(&fbdo, "/buzzer/tone")) {
+      currentBuzzerTone = firebaseHandler.getInt("/buzzer/tone");
+      /* if (Firebase.RTDB.getInt(&fbdo, "/buzzer/tone")) {
         currentBuzzerTone = fbdo.intData();
         ifPrintln("buzzer fb get int");
       } else {
         fbdoError();
-      }
+      } */
 
       // perintah aktivasi buzzer
-      if (Firebase.RTDB.getBool(&fbdo, "/buzzer/isBuzzer")) {
+      buzzerAct = firebaseHandler.getBool("/buzzer/isBuzzer");
+      if (buzzerAct) {
+        buzzerT(currentBuzzerTone);
+        firebaseHandler.setBool("/buzzer/isBuzzer", false);
+        ifPrintln("fb set isBuzzer false");
+      }
+
+      /* if (Firebase.RTDB.getBool(&fbdo, "/buzzer/isBuzzer")) {
         buzzerAct = fbdo.boolData();
         ifPrintln("buzzer fb get bool");
         if (buzzerAct) {
@@ -1739,10 +1772,28 @@ void loop() {
         }
       } else {
         fbdoError();
-      }
+      } */
 
       // restart
-      if (Firebase.RTDB.getBool(&fbdo, "/espRestart")) {
+      bool restart = firebaseHandler.getBool("/espRestart");
+      if (restart) {
+        ifPrintln("ESP restart true");
+        firebaseHandler.setBool("/espRestart", false);
+        ifPrintln("fb set espRestart false\nrestarting ESP8266...");
+        delay(1000);
+        ESP.restart();
+      }
+
+      bool restart = firebaseHandler.getBool("/espRestart");
+      if (restart) {
+        ifPrintln("ESP restart true");
+        firebaseHandler.setBool("/espRestart", false);
+        ifPrintln("fb set espRestart false\nrestarting ESP8266...");
+        delay(1000);
+        ESP.restart();
+      }
+
+      /* if (Firebase.RTDB.getBool(&fbdo, "/espRestart")) {
         bool restart = fbdo.boolData();
         if (restart) {
           ifPrintln("ESP restart true");
@@ -1756,7 +1807,7 @@ void loop() {
         }
       } else {
         fbdoError();
-      }
+      } */
 
       // ambil data dari array setting di firebase
       FirebaseJsonArray fja;
@@ -1790,7 +1841,18 @@ void loop() {
       ifPrintln("");
 
       // feeding
-      if (Firebase.RTDB.getBool(&fbdo, "/feeding/throwOut")) {
+      bool throwOut = firebaseHandler.getBool("/feeding/throwOut");
+      int feedValue = firebaseHandler.getInt("/feeding/value");
+      if (throwOut && feedValue != 0 && feedValue <= 5) {
+        Serial.println("servo throwOut");
+        servoKatup(feedValue);
+        lastFood("fdg", feedValue, completeTime);
+        firebaseHandler.setBool("/feeding/throwOut", false);
+        ifPrintln("fb set throwOut false");
+      }
+
+
+      /* if (Firebase.RTDB.getBool(&fbdo, "/feeding/throwOut")) {
         bool throwOut = fbdo.boolData();
         if (Firebase.RTDB.getInt(&fbdo, "/feeding/value")) {
           int feedValue = fbdo.intData();
@@ -1809,7 +1871,7 @@ void loop() {
         }
       } else {
         fbdoError();
-      }
+      } */
 
       // command
       if (Firebase.RTDB.getString(&fbdo, "/command/inputCode")) {
