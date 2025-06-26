@@ -1053,24 +1053,24 @@ struct FirebaseHandler {
   FirebaseData* fbdo_s;
   
   bool start() { 
-    bool start = true;
-    if (start && isWifiConnect) {
+    static bool start = true;
+    if (start == true && isWifiConnect) {
       OOOOOOOOOO_codeMarker(11);
+      Serial.print("isWifiConnect: ");
+      Serial.println(isWifiConnect);
       if (Firebase.signUp(&config, &auth, "", "")) {
         Serial.println("firebase signup berhasil");
         OOOOOOOOOO_codeMarker(12);
-        Serial.println(isWifiConnect);
         config.token_status_callback = tokenStatusCallback;
         Firebase.begin(&config, &auth);
         Firebase.reconnectWiFi(true);
-        start = false;
         signupOK = true;
       } else {
         OOOOOOOOOO_codeMarker(13);
         Serial.printf("%s\n", config.signer.signupError.message.c_str());
         signupOK = false;
       }
-      
+      start = false;
     }
     return true;
   }
@@ -1706,7 +1706,7 @@ void loop() {
 
   OOOOOOOOOO_codeMarker(6);
   // cek apakah firebase siap
-  if (Firebase.ready() && signupOK) {
+  if (Firebase.ready() && signupOK == true) {
     fbdConnected = true;
   } else {
     fbdConnected = false;

@@ -20,6 +20,7 @@
 - Memperbaiki kode setup untuk Firebase.
 - Catatan: Pengambilan data WiFi dari EEPROM masih belum diterapkan, masih menggunakan nilai default.
 ! perbaiki loop supaya tidak lambat
+! firebase tidak dapat autentikasi kadang bisa
 
 //2025
 //2025
