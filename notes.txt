@@ -3,7 +3,7 @@
 + perbaiki function handleWifi()
 + hapus function connnectWifi()
 
-25/6/2025
+25/06/2025
 
 ! perbaiki fungsi wifiConnection() untuk command ganti wifiConnection
 + perbaiki dan ubah cara kerja handleWifi()
@@ -12,7 +12,14 @@
 + perbaiki dan ubah nama function handleWiFi() menjadi wifiHandle(), tambahkan fungsi otaHandle() untuk menangani pembaruan OTA
 ! error, perbaiki kode setup untukfirebase
 
-//2025
+26/06/2025
+
+- Memperbaiki dan mengubah cara kerja fungsi wifiHandle() (sebelumnya handleWiFi()).
+- Menambahkan fungsi otaHandle() untuk menangani pembaruan OTA.
+- Memperbaiki fungsi wifiConnection() dan menyesuaikan command terkait.
+- Memperbaiki kode setup untuk Firebase.
+- Catatan: Pengambilan data WiFi dari EEPROM masih belum diterapkan, masih menggunakan nilai default.
+
 //2025
 //2025
 //2025

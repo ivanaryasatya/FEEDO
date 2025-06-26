@@ -168,39 +168,6 @@ String readStringFromEEPROM(int addr) {
   return String(buffer);
 }
 
-// Example: source = pot / btn, value = 0-3
-// Example: |pot,3,2025-02-03 12:30:00
-void lastFood(String source, int value, String currentTime) {
-  const byte maxDataLimit = 50;
-  const byte formatLength = 26;
-  const String newData = "|" + source + "," + value + "," + currentTime;
-  FirebaseJsonArray fja;
-  String final = firebaseHandler.getString("/lastFood");
-  final = final + newData;
-  if (final.length() > (formatLength * maxDataLimit)) {
-    final = final.substring(final.length() - (formatLength * maxDataLimit), final.length());
-  }
-  firebaseHandler.setString("/lastFood", final);
-
-  /*if (Firebase.RTDB.getString(&fbdo, "/lastFood")) {
-    const byte maxDataLimit = 50;
-    const byte formatLength = 26;
-    const String newData = "|" + source + "," + value + "," + currentTime;
-
-    String lf = fbdo.stringData();
-    String final = lf;
-
-    final = final + newData;
-    if (final.length() > (formatLength * maxDataLimit)) {
-      final = final.substring(final.length() - (formatLength * maxDataLimit), final.length());
-    }
-    if (Firebase.RTDB.setString(&fbdo, "/lastFood", final)) {
-    } else {
-      fbdoError();
-    }
-  }*/
-}
-
 // servo
 void servoKatup(int perulanganKatup) {
   Serial.println("servo - katup" + perulanganKatup);
@@ -933,7 +900,7 @@ bool wifiHandle(String wifi, String password, bool startConnect) {
         Serial.print(".");
         wait(200);
         handleTimeout++;
-        if (handleTimeout > 20) {
+        if (handleTimeout > 50) {
           Serial.println(".");
           handleTimeout = 0;
           break;
@@ -1080,8 +1047,7 @@ struct FirebaseHandler {
   FirebaseData* fbdo_s;
 
   bool setInt(const String& path, int value) {
-    if (!isWifiConnect) return;
-    if (!Firebase.RTDB.setInt(fbdo_s, path, value)) {
+    if (isWifiConnect && Firebase.RTDB.setInt(fbdo_s, path, value)) {
       return true;
     } else {
       return false;
@@ -1089,8 +1055,7 @@ struct FirebaseHandler {
     }
   }
   bool setFloat(const String& path, float value) {
-    if (!isWifiConnect) return;
-    if (!Firebase.RTDB.setFloat(fbdo_s, path, value)) {
+    if (isWifiConnect && Firebase.RTDB.setFloat(fbdo_s, path, value)) {
       return true;
     } else {
       return false;
@@ -1098,8 +1063,7 @@ struct FirebaseHandler {
     }
   }
   bool setBool(const String& path, bool value) {
-    if (!isWifiConnect) return;
-    if (!Firebase.RTDB.setBool(fbdo_s, path, value)) {
+    if (isWifiConnect && Firebase.RTDB.setBool(fbdo_s, path, value)) {
       return true;
     } else {
       return false;
@@ -1107,8 +1071,7 @@ struct FirebaseHandler {
     }
   }
   bool setString(const String& path, const String& value) {
-    if (!isWifiConnect) return;
-    if (!Firebase.RTDB.setString(fbdo_s, path, value)) {
+    if (isWifiConnect && Firebase.RTDB.setString(fbdo_s, path, value)) {
       return true;
     } else {
       return false;
@@ -1116,8 +1079,7 @@ struct FirebaseHandler {
     }
   }
   int getInt(const String& path) {
-    if (!isWifiConnect) return -1;
-    if (Firebase.RTDB.getInt(fbdo_s, path)) {
+    if (isWifiConnect && Firebase.RTDB.getInt(fbdo_s, path)) {
       return fbdo_s->intData();
     } else {
       fbdo.errorReason();
@@ -1125,8 +1087,7 @@ struct FirebaseHandler {
     }
   }
   float getFloat(const String& path) {
-    if (!isWifiConnect) return 0.0;
-    if (Firebase.RTDB.getFloat(fbdo_s, path)) {
+    if (isWifiConnect && Firebase.RTDB.getFloat(fbdo_s, path)) {
       return fbdo_s->floatData();
     } else {
       fbdo.errorReason();
@@ -1134,8 +1095,7 @@ struct FirebaseHandler {
     }
   }
   bool getBool(const String& path) {
-    if (!isWifiConnect) return false;
-    if (Firebase.RTDB.getBool(fbdo_s, path)) {
+    if (isWifiConnect && Firebase.RTDB.getBool(fbdo_s, path)) {
       return fbdo_s->boolData();
     } else {
       fbdo.errorReason();
@@ -1143,8 +1103,7 @@ struct FirebaseHandler {
     }
   }
   String getString(const String& path) {
-    if (!isWifiConnect) return "";
-    if (Firebase.RTDB.getString(fbdo_s, path)) {
+    if (isWifiConnect && Firebase.RTDB.getString(fbdo_s, path)) {
       return fbdo_s->stringData();
     } else {
       fbdo.errorReason();
@@ -1153,6 +1112,40 @@ struct FirebaseHandler {
   }
 };
 FirebaseHandler firebaseHandler = { &fbdo };
+
+// menyimpan data terakhir makanan
+void lastFood(String source, int value, String currentTime) {
+  // Example: source = pot / btn, value = 0-3
+  // Example: |pot,3,2025-02-03 12:30:00
+  const byte maxDataLimit = 50;
+  const byte formatLength = 26;
+  const String newData = "|" + source + "," + value + "," + currentTime;
+  FirebaseJsonArray fja;
+  String final = firebaseHandler.getString("/lastFood");
+  final = final + newData;
+  if (final.length() > (formatLength * maxDataLimit)) {
+    final = final.substring(final.length() - (formatLength * maxDataLimit), final.length());
+  }
+  firebaseHandler.setString("/lastFood", final);
+
+  /*if (Firebase.RTDB.getString(&fbdo, "/lastFood")) {
+    const byte maxDataLimit = 50;
+    const byte formatLength = 26;
+    const String newData = "|" + source + "," + value + "," + currentTime;
+
+    String lf = fbdo.stringData();
+    String final = lf;
+
+    final = final + newData;
+    if (final.length() > (formatLength * maxDataLimit)) {
+      final = final.substring(final.length() - (formatLength * maxDataLimit), final.length());
+    }
+    if (Firebase.RTDB.setString(&fbdo, "/lastFood", final)) {
+    } else {
+      fbdoError();
+    }
+  }*/
+}
 
 // command ouput firebase
 void fbdCommandOutput(String oCommand) {
@@ -1258,7 +1251,6 @@ void otaHandle() {
     }
   }
 }
-
 
 /* commandRunner
 void commandRunner(String CRcommand) {
@@ -1623,8 +1615,8 @@ void loop() {
   if (millis() - currentTimeM >= 1000) {
     OOOOOOOOOO_codeMarker(5);
 
-    time_t epochTime = timeClient.getEpochTime();  // Get epoch time
-    struct tm* ptm = gmtime((time_t*)&epochTime);  // Convert epoch time to struct tm
+    time_t epochTime = timeClient.getEpochTime();
+    struct tm* ptm = gmtime((time_t*)&epochTime);
 
     int
       monthDay = ptm->tm_mday,            // tanggal
@@ -1705,13 +1697,6 @@ void loop() {
     if (millis() - prevUpMillis >= 3000) {
       
       mobileLatestUp = firebaseHandler.getString("/mobileLatestUp");
-
-      /* if (Firebase.RTDB.getBool(&fbdo, "/mobileLatestUp")) {
-        mobileLatestUp = fbdo.stringData();
-      } else {
-        fbdoError();
-      } */
-
       if (mobileLatestUp != mobileLastUp) {
         mobileLastUp = mobileLatestUp;
         firebaseUpdate = true;
@@ -1722,9 +1707,7 @@ void loop() {
     // last start
     if (lastStart) {
       firebaseHandler.setString("/lastStart", completeTime);
-      lastStart = false; 
-      /* if (Firebase.RTDB.setString(&fbdo, "/lastStart", completeTime)) {
-      }*/
+      lastStart = false;
     }
 
     // update loop rate
@@ -1775,15 +1758,6 @@ void loop() {
       } */
 
       // restart
-      bool restart = firebaseHandler.getBool("/espRestart");
-      if (restart) {
-        ifPrintln("ESP restart true");
-        firebaseHandler.setBool("/espRestart", false);
-        ifPrintln("fb set espRestart false\nrestarting ESP8266...");
-        delay(1000);
-        ESP.restart();
-      }
-
       bool restart = firebaseHandler.getBool("/espRestart");
       if (restart) {
         ifPrintln("ESP restart true");
