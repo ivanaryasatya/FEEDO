@@ -30,7 +30,7 @@
 char buffer[maxLength];
 
 Servo myServo;
-FirebaseData fbdo;  //test
+FirebaseData fbdo;
 
 FirebaseAuth auth;
 FirebaseConfig config;
@@ -146,8 +146,10 @@ void OOOOOOOOOO_codeMarker(byte marker) {
   if (codeMarkerPrint) {
     return;
   }
-  Serial.print(marker);
-  Serial.println("========");
+  const char *markerStr = "codeMarker";
+  const char *markerHighlight = "==========";
+  Serial.print(markerStr);
+  Serial.print(markerHighlight);
 }
 
 String readStringFromEEPROM(int addr) {
@@ -1005,25 +1007,16 @@ void wifiConnection(String ssid, String password) {
 
 //pengolahan teks
 CommandData parseCommand(String input) {
+
   CommandData result;
   result.valueCount = 0;
-
-  // Mencari posisi pertama dari spasi
   int firstSpace = input.indexOf(' ');
-
-  // Jika tidak ada spasi, berarti hanya perintah tanpa value
   if (firstSpace == -1) {
     result.command = input;
     return result;
   }
-
-  // Ambil perintah
   result.command = input.substring(0, firstSpace);
-
-  // Ambil sisanya sebagai value string
   String valuesString = input.substring(firstSpace + 1);
-
-  // Pisahkan value berdasarkan spasi
   int spaceIndex;
   while (result.valueCount < 10 && valuesString.length() > 0) {
     spaceIndex = valuesString.indexOf(' ');
@@ -1072,6 +1065,69 @@ int accessEEPROM(int address, int value) {
 void fbdoError() {
   Serial.println("firebase error" + fbdo.errorReason());
 }
+
+// handler firebase
+struct FirebaseHandler {
+  FirebaseData* fbdo;
+
+  void setInt(const String& path, int value) {
+    if (!Firebase.RTDB.setInt(fbdo, path, value)) {
+    } else {
+      fbdoError();
+    }
+  }
+  void setFloat(const String& path, float value) {
+    if (!Firebase.RTDB.setFloat(fbdo, path, value)) {
+    } else {
+      fbdoError();
+    }
+  }
+  void setBool(const String& path, bool value) {
+    if (!Firebase.RTDB.setBool(fbdo, path, value)) {
+    } else {
+      fbdoError();
+    }
+  }
+  void setString(const String& path, const String& value) {
+    if (!Firebase.RTDB.setString(fbdo, path, value)) {
+    } else {
+      fbdoError();
+    }
+  }
+  int getInt(const String& path) {
+    if (Firebase.RTDB.getInt(fbdo, path)) {
+      return fbdo->intData();
+    } else {
+      fbdoError();
+      return -1;
+    }
+  }
+  float getFloat(const String& path) {
+    if (Firebase.RTDB.getFloat(fbdo, path)) {
+      return fbdo->floatData();
+    } else {
+      fbdoError();
+      return 0.0;
+    }
+  }
+  bool getBool(const String& path) {
+    if (Firebase.RTDB.getBool(fbdo, path)) {
+      return fbdo->boolData();
+    } else {
+      fbdoError();
+      return false;
+    }
+  }
+  String getString(const String& path) {
+    if (Firebase.RTDB.getString(fbdo, path)) {
+      return fbdo->stringData();
+    } else {
+      fbdoError();
+      return "";
+    }
+  }
+};
+FirebaseHandler firebaseHandler = { &fbdo };
 
 // command ouput firebase
 void fbdCommandOutput(String oCommand) {
@@ -1177,6 +1233,287 @@ void otaHandle() {
     }
   }
 }
+
+
+/* commandRunner
+void commandRunner(String CRcommand) {
+
+  String command = fbdo.stringData();
+  cmd = parseCommand(command);
+  String parseCommand = cmd.command;
+  String cmdValue1 = cmd.values[0];
+  String cmdValue2 = cmd.values[1];
+
+
+  for (int i = 0; i < cmd.valueCount; i++) {
+    Serial.println("value " + String(i + 1) + ": " + cmd.values[i]);
+  }
+
+  if (command.indexOf('.') != -1) {
+    Serial.println("command: " + cmd.command);
+
+    if (command == "wifi.rssi") {  // Kekuatan sinyal WiFi
+      long rssi = WiFi.RSSI();
+      fbdCommandOutput(String(rssi));
+    } else if (command == "wifi.localIp") {  // Alamat IP lokal
+      fbdCommandOutput(WiFi.localIP().toString());
+    } else if (command == "wifi.macAddress") {  // MAC Address
+      fbdCommandOutput(WiFi.macAddress());
+    } else if (command == "esp.restart") {  // restart
+      fbdCommandOutput("restarting board");
+      if (Firebase.RTDB.setString(&fbdo, "/command/inputCode", "~")) {}
+      ESP.restart();
+    } else if (command == "esp.millis") {  // millis
+      fbdCommandOutput(String(millis()));
+    } else if (command == "ntp.completeTime") {  // waktu NTP
+      fbdCommandOutput(completeTime);
+    } else if (command == "pot.value") {  // pot value
+      fbdCommandOutput(String(analogRead(potPin)));
+    } else if (command == "pot.currentPos") {  // pot current pos
+      fbdCommandOutput(String(currentPos));
+    } else if (command == "esp.getFreeHeap") {  // Free Heap
+      fbdCommandOutput(String(ESP.getFreeHeap()));
+    } else if (command == "esp.getHeapFragmentation") {  // Fragmentation
+      fbdCommandOutput(String(ESP.getHeapFragmentation()));
+    } else if (command == "esp.getMaxFreeBlockSize") {  // FreeBlockSize
+      fbdCommandOutput(String(ESP.getMaxFreeBlockSize()));
+    } else if (command == "esp.getFlashChipSize") {  // FlashChipSize
+      fbdCommandOutput(String(ESP.getFlashChipSize()));
+    } else if (command == "esp.getFlashChipRealSize") {  // FlashChippReal
+      fbdCommandOutput(String(ESP.getFlashChipRealSize()));
+    } else if (command == "esp.getFreeSketchSpace") {  // FreeSketchS
+      fbdCommandOutput(String(ESP.getFreeSketchSpace()));
+    } else if (command == "esp.getSketchSize") {  // SketchSize
+      fbdCommandOutput(String(ESP.getSketchSize()));
+    } else if (parseCommand == "wifi.begin") {  // ganti wifi
+      if (Firebase.RTDB.setString(&fbdo, "/command/inputCode", "~")) {}
+      if (cmdValue1.length() >= 30 || cmdValue2.length() >= 30) {
+        fbdCommandOutput("ssid atau password lebih dari 30 huruf");
+        return;
+      }
+      WiFi.disconnect();
+      wait(1000);
+      wifiHandle(cmdValue1, cmdValue2, true);
+
+      if (WiFi.status() == WL_CONNECTED) {
+        fbdCommandOutput("new wifi connected");
+        saveStringToEEPROM(ssidAddress, cmdValue1);
+        saveStringToEEPROM(passwordAddress, cmdValue2);
+      } else {
+        wifiHandle(wifiSsid, wifiPassword, true);
+        fbdCommandOutput("new wifi not connected, connected to last wifi connection");
+      }
+    } else if (parseCommand == "esp.delay") {  // delay
+      fbdCommandOutput("esp delay start");
+      wait(cmdValue1.toInt());
+      fbdCommandOutput("esp delay ended");
+    } else if (parseCommand == "servo.setMaxAngle") {  // servo max angle
+      if (cmdValue1.toInt() <= 180) {
+        servoMaxAngle = cmdValue1.toInt();
+        accessEEPROM(servoMAAddress, cmdValue1.toInt());
+        fbdCommandOutput("servo set max angle");
+      } else {
+        fbdCommandOutput("error: angle too large");
+      }
+    } else if (parseCommand == "servo.setMinAngle") {  // servo min angle
+      if (cmdValue1.toInt() >= 0) {
+        servoMinAngle = cmdValue1.toInt();
+        accessEEPROM(servoMIAAddress, cmdValue1.toInt());
+        delay(1000);
+        fbdCommandOutput("servo set min angle");
+      } else {
+        fbdCommandOutput("error: angle too small");
+      }
+
+    } else if (parseCommand == "servo.setOpenDelay") {
+      if (cmdValue1.toInt() <= 10000) {
+        servoOpenDelay = cmdValue1.toInt();
+        accessEEPROM(servoODAddress, servoOpenDelay);
+        fbdCommandOutput("servo set open delay");
+      } else {
+        fbdCommandOutput("error: delay too long");
+      }
+
+
+    } else if (parseCommand == "servo.setCloseDelay") {
+      if (cmdValue1.toInt() >= 80) {
+        servoCloseDelay = cmdValue1.toInt();
+        accessEEPROM(servoCDAddress, cmdValue1.toInt());
+        fbdCommandOutput("servo set close delay");
+      } else {
+        fbdCommandOutput("error: delay too fast");
+      }
+    } else if (parseCommand == "servo.katup") {  // katup
+      servoKatup(cmdValue1.toInt());
+      fbdCommandOutput("valve finished running");
+    } else if (parseCommand == "servo.setAngle") {  // set angle
+      myServo.attach(servoPin, 500, 2500);
+      myServo.write(cmdValue1.toInt());
+      delay(500);
+      myServo.detach();
+      fbdCommandOutput("servo set to current angle");
+    } else if (parseCommand == "buzzer.tone") {  // buzzer tone
+      buzzerT(cmdValue1.toInt());
+      fbdCommandOutput("buzzer tone complete running");
+    } else if (parseCommand == "eeprom.get") {  // get EEPROM
+      int intValues = cmdValue1.toInt();
+      if (intValues != ssidAddress && intValues != passwordAddress) {
+        fbdCommandOutput(String(accessEEPROM(cmdValue1.toInt(), -1)));
+      } else {
+        fbdCommandOutput(readStringFromEEPROM(cmdValue1.toInt()));
+      }
+
+    } else if (parseCommand == "eeprom.getAll") {
+
+      String getAllResult = getAllEeprom();
+      getAllResult.replace("\n", "\\n");
+      Serial.println(getAllResult);
+      fbdCommandOutput(getAllResult);
+
+    } else if (parseCommand == "led.state") {  // set led status
+      if (cmdValue1 == "true") {
+        digitalWrite(ledPin, HIGH);
+        fbdCommandOutput("led true");
+      } else if (cmdValue1 == "false") {
+        digitalWrite(ledPin, LOW);
+        fbdCommandOutput("led false");
+      }
+    } else if (parseCommand == "led.effect") {  // efel led
+      if (cmdValue1 == "fadeIn") {
+        ledFadeIn();
+        digitalWrite(ledPin, LOW);
+        fbdCommandOutput("led fadeing in");
+      } else if (cmdValue1 == "fadeOut") {
+        ledFadeOut();
+        fbdCommandOutput("led fadeing out");
+      }
+    } else if (parseCommand == "eeprom.writeString") {  // write string to eeprom
+      if (cmdValue1.toInt() == ssidAddress || cmdValue1.toInt() == passwordAddress && cmdValue2.length() <= 30) {
+        saveStringToEEPROM(cmdValue1.toInt(), cmdValue2);
+        fbdCommandOutput("string data is saved");
+      } else {
+        fbdCommandOutput("error: destination address saves int");
+      }
+    } else if (parseCommand == "eeprom.writeInterger") {  // write interger to eeprom
+      if (cmdValue1.toInt() != ssidAddress && cmdValue1.toInt() != passwordAddress) {
+        if (cmdValue2.toInt() <= 99999) {
+          accessEEPROM(cmdValue1.toInt(), cmdValue2.toInt());
+          fbdCommandOutput("interger data is saved");
+        } else {
+          fbdCommandOutput("error: number greater than 99999");
+        }
+      } else {
+        fbdCommandOutput("error: destination address saves string");
+      }
+    } else if (parseCommand == "servo.enable") {  // enable servo
+      bool enableServo2 = true;
+      if (cmdValue1 == "true") {
+        accessEEPROM(enableServoAddr, 1);
+        enableServo = true;
+      } else if (cmdValue1 == "false") {
+        accessEEPROM(enableServoAddr, 0);
+        enableServo = false;
+      } else {
+        fbdCommandOutput("error: wrong value");
+        enableServo2 = false;
+      }
+      if (enableServo2) {
+        fbdCommandOutput("servo permission updated");
+      }
+
+    } else if (parseCommand == "buzzer.enable") {  // enable buzzer
+      bool enableBuzzer2 = true;
+      if (cmdValue1 == "true") {
+        accessEEPROM(enableBuzzerAddr, 1);
+        enableBuzzer = true;
+      } else if (cmdValue1 == "false") {
+        accessEEPROM(enableBuzzerAddr, 0);
+        enableBuzzer = false;
+      } else {
+        fbdCommandOutput("error: wrong value");
+        enableBuzzer2 = false;
+      }
+      if (enableBuzzer2) {
+        fbdCommandOutput("buzzer permission updated");
+      }
+
+    } else if (parseCommand == "led.enable") {  // enable led
+      bool enableLed2 = true;
+      if (cmdValue1 == "true") {
+        accessEEPROM(enableLedAddr, 1);
+        enableLed = true;
+      } else if (cmdValue1 == "false") {
+        accessEEPROM(enableLedAddr, 0);
+        enableLed = false;
+      } else {
+        fbdCommandOutput("error: wrong value");
+        enableLed2 = false;
+      }
+      if (enableLed2) {
+        fbdCommandOutput("led permission updated");
+      }
+    } else if (parseCommand == "pot.enable") {  // enable potentometer
+      bool enablePot2 = true;
+      if (cmdValue1 == "true") {
+        accessEEPROM(enablePotAddr, 1);
+        enablePot = true;
+      } else if (cmdValue1 == "false") {
+        accessEEPROM(enablePotAddr, 0);
+        enablePot = false;
+      } else {
+        fbdCommandOutput("error: wrong value");
+        enablePot2 = false;
+      }
+      if (enablePot2) {
+        fbdCommandOutput("pot permission updated");
+      }
+    } else if (parseCommand == "button.enable") {  // enable button
+      bool enableButton2 = true;
+      if (cmdValue1 == "true") {
+        accessEEPROM(enableButtonAddr, 1);
+        enableButton = true;
+      } else if (cmdValue1 == "false") {
+        accessEEPROM(enableButtonAddr, 0);
+        enableButton = false;
+      } else {
+        fbdCommandOutput("error: wrong value");
+        enableButton2 = false;
+      }
+      if (enableButton2) {
+        fbdCommandOutput("button permission updated");
+      }
+
+    } else if (parseCommand == "tiltSensor.enable") {  // enable tilt sensor
+      bool enableTiltSensor2 = true;
+      if (cmdValue1 == "true") {
+        accessEEPROM(enableTiltSensorAddr, 1);
+        enableTiltSensor = true;
+      } else if (cmdValue1 == "false") {
+        accessEEPROM(enableTiltSensorAddr, 0);
+        enableTiltSensor = false;
+      } else {
+        fbdCommandOutput("error: wrong value");
+        enableTiltSensor2 = false;
+      }
+      if (enableTiltSensor2) {
+        fbdCommandOutput("servo permission updated");
+      }
+
+    } else {
+      fbdCommandOutput("unknown input code, check the command and try again.");
+    }
+    if (Firebase.RTDB.setString(&fbdo, "/command/inputCode", "~")) {}
+  } else {
+    if (command != "~") {
+      fbdCommandOutput("unknown input code, check the command and try again.");
+    }
+  }
+}
+
+*/
+
+
+
 
 // --------------------------------- functions ---------------------------------//
 
@@ -1341,9 +1678,15 @@ void loop() {
     OOOOOOOOOO_codeMarker(8);
     // mobile app update
     if (millis() - prevUpMillis >= 3000) {
-      if (Firebase.RTDB.getBool(&fbdo, "/mobileLatestUp")) {
+      
+      mobileLatestUp = firebaseHandler.getString("/mobileLatestUp");
+
+      /* if (Firebase.RTDB.getBool(&fbdo, "/mobileLatestUp")) {
         mobileLatestUp = fbdo.stringData();
-      }
+      } else {
+        fbdoError();
+      } */
+
       if (mobileLatestUp != mobileLastUp) {
         mobileLastUp = mobileLatestUp;
         firebaseUpdate = true;
@@ -1769,6 +2112,7 @@ void loop() {
   otaHandle();
   yield();
   OOOOOOOOOO_codeMarker(10);
+
 }
 
 
