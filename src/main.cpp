@@ -101,6 +101,7 @@ bool
   enableButton = true,
   lastWifiStatus = false,
   otaIsActive = false,
+  codeMarkerPrint = false,
   enableTiltSensor = true;
 unsigned long
   bCooldownStart = 0,
@@ -142,6 +143,9 @@ CommandData cmd;
 
 // example OOOOOOOOOO_codeMarker();
 void OOOOOOOOOO_codeMarker(byte marker) {
+  if (codeMarkerPrint) {
+    return;
+  }
   Serial.print(marker);
   Serial.println("========");
 }
@@ -1115,6 +1119,7 @@ String getAllEeprom() {
 void otaHandle() {
   OOOOOOOOOO_codeMarker(1);
   static bool otaInitialized = false;
+  static bool apHasDisconnected = true;
 
   if (currentPos == 5) {
     if (!otaInitialized) {
@@ -1159,10 +1164,17 @@ void otaHandle() {
     }
     if (otaIsActive) {
       ArduinoOTA.handle();
+      apHasDisconnected = false;
     }
   } else {
     otaIsActive = false;
     otaInitialized = false;
+    if (!apHasDisconnected) {
+      Serial.println("AP has disconnected, stopping OTA");
+      ArduinoOTA.end();
+      WiFi.softAPdisconnect(true);
+      apHasDisconnected = true;
+    }
   }
 }
 

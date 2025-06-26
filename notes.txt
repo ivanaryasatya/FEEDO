@@ -10,6 +10,7 @@
 ! tambahkan command untuk mengubah update speed dari looprate
 ! wifi belum ambil dari eeprom masih default
 + perbaiki dan ubah nama function handleWiFi() menjadi wifiHandle(), tambahkan fungsi otaHandle() untuk menangani pembaruan OTA
+! error, perbaiki kode setup untukfirebase
 
 //2025
 //2025
