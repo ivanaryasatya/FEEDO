@@ -126,8 +126,6 @@ String
   monthDayStr,
   wifiSsid = "",
   wifiPassword = "",
-  APSsid = "FEEDO-ESP8266-AP",
-  APPassword = "ikansegar";
 
 String waktusBaru[24];
 int katupsBaru[24];
@@ -1288,6 +1286,77 @@ void otaHandle() {
   }
 }
 
+// handler waktu NTP
+struct TimeClientHandler {
+
+  bool start() {
+    static bool start = true;
+    if (start) {
+      timeClient.begin();
+      timeClient.setTimeOffset(25200);  // Offset untuk Waktu Indonesia Barat (WIB)
+      start = false;
+    }
+    return !start;
+  }
+
+  String currentTime() {
+    timeClient.update();
+    return timeClient.getFormattedTime().substring(0, 5);
+  }
+
+  String monthDay() {
+    timeClient.update();
+    time_t epochTime = timeClient.getEpochTime();
+    struct tm* ptm = gmtime((time_t*)&epochTime); 
+    byte monthDay = ptm->tm_mday;
+    if (monthDay < 10) {
+      monthDayStr = "0" + String(monthDay);
+    } else {
+      monthDayStr = String(monthDay);
+    }
+    return monthDayStr;
+  }
+
+  String currentMonth() {
+    timeClient.update();
+    time_t epochTime = timeClient.getEpochTime();
+    struct tm* ptm = gmtime((time_t*)&epochTime); 
+    byte currentMonth = ptm->tm_mon + 1;
+    if (currentMonth < 10) {
+      currentMonthStr = "0" + String(currentMonth);
+    } else {
+      currentMonthStr = String(currentMonth);
+    }
+    return currentMonthStr;
+  }
+
+  String currentYear() {
+    timeClient.update();
+    time_t epochTime = timeClient.getEpochTime();
+    struct tm* ptm = gmtime((time_t*)&epochTime); 
+    int currentYear = ptm->tm_year + 1900;
+    return String(currentYear);
+  }
+
+  String completeTime() {
+    return String(currentYear()) + "-" + currentMonth() + "-" + monthDay() + " " + timeClient.getFormattedTime();
+  }
+};
+TimeClientHandler timeClientHandler;
+
+struct StringBank {
+
+  const String APSsid = "FEEDO-ESP8266-AP";
+  const String APPassword = "ikansegar";
+
+  String wifiSsid = "YourSSID";
+  String wifiPassword = "YourPassword";
+
+
+};
+StringBank stringBank;
+
+
 /* commandRunner
 void commandRunner(String CRcommand) {
 
@@ -1590,11 +1659,10 @@ void setup() {
   wifiSsid = readStringFromEEPROM(ssidAddress);
   wifiPassword = readStringFromEEPROM(passwordAddress);
   isWifiConnect = wifiHandle(wifiSsid, wifiPassword, true);
+  timeClientHandler.start();
 
   config.api_key = API_KEY;
   config.database_url = DATABASE_URL;
-
-  
 
   servoMaxAngle = accessEEPROM(servoMAAddress, -1);
   servoMinAngle = accessEEPROM(servoMIAAddress, -1);
@@ -1621,11 +1689,15 @@ void loop() {
   isWifiConnect = wifiHandle(wifiSsid, wifiPassword, false);
   loopRate();
 
-  firebaseHandler.start();
-  timeClient.begin();
-  timeClient.setTimeOffset(25200);
   digitalWrite(LED_BUILTIN, HIGH);
-    
+
+  // update waktu
+  if (millis() - currentTimeM >= 1000) {
+    currentTimeM = millis();
+    currentTime = timeClientHandler.currentTime();
+    completeTime = timeClientHandler.completeTime();
+  }
+
   // buzzer start
   if (buzzerStart) {
     buzzerT(7);
@@ -1634,12 +1706,12 @@ void loop() {
 
   // timeClient update
   OOOOOOOOOO_codeMarker(4);
-  timeClient.update();
+  /* timeClient.update();
   if (millis() - currentTimeM >= 1000) {
     OOOOOOOOOO_codeMarker(5);
 
     time_t epochTime = timeClient.getEpochTime();
-    struct tm* ptm = gmtime((time_t*)&epochTime);
+    struct tm* ptm = gmtime((time_t*)&epochTime); 
 
     int
       monthDay = ptm->tm_mday,            // tanggal
@@ -1661,7 +1733,7 @@ void loop() {
     completeTime = String(currentYear) + "-" + String(currentMonthStr) + "-" + String(monthDayStr) + " " + String(formattedTime);
 
     currentTimeM = millis();
-  }
+  } */
 
   // serial input
   if (Serial.available() > 0) {
@@ -1705,6 +1777,7 @@ void loop() {
   potentiometer(currentTime, completeTime);
 
   OOOOOOOOOO_codeMarker(6);
+  firebaseHandler.start();
   // cek apakah firebase siap
   if (Firebase.ready() && signupOK == true) {
     fbdConnected = true;
