@@ -14,6 +14,7 @@
 #include <Firebase_ESP_Client.h>
 #include "addons/TokenHelper.h"
 #include "addons/RTDBHelper.h"
+#include <ESP8266WebServer.h>
 
 
 #define API_KEY "AIzaSyALzv1N1Kdh84U_lhwgb3jXlGSy-9EWMyo"
@@ -36,6 +37,7 @@ FirebaseAuth auth;
 FirebaseConfig config;
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, "pool.ntp.org");
+ESP8266WebServer server(80); // Port HTTP
 
 byte
   potPin = A0,
@@ -102,7 +104,8 @@ bool
   lastWifiStatus = false,
   otaIsActive = false,
   codeMarkerPrint = false,
-  enableTiltSensor = true;
+  enableTiltSensor = true,
+  webServerIsActive = false;
 unsigned long
   bCooldownStart = 0,
   sensorDTime = 0,
@@ -115,7 +118,7 @@ unsigned long
   currentPosPrint = 0,
   lastReconnectAttempt = 0,
   startAttemptTime = 0,
-  currentTimeM = 0;
+  timeClientUpdateDelay = 0;
 String
   mobileLastUp = "",
   mobileLatestUp = "",
@@ -125,7 +128,8 @@ String
   currentMonthStr,
   monthDayStr,
   wifiSsid = "",
-  wifiPassword = "";
+  wifiPassword = "",
+  command = "";
 const String APSsid = "FEEDO-ESP8266-AP";
 const String APPassword = "ikansegar";
 
@@ -143,7 +147,7 @@ CommandData cmd;
 
 // example OOOOOOOOOO_codeMarker();
 void OOOOOOOOOO_codeMarker(byte marker) {
-  if (codeMarkerPrint) {
+  if (!codeMarkerPrint) {
     return;
   }
   const char *markerStr = "CM";
@@ -171,32 +175,33 @@ String readStringFromEEPROM(int addr) {
 // servo
 void servoKatup(int perulanganKatup) {
   Serial.println("servo - katup" + perulanganKatup);
-  if (perulanganKatup <= 5) {
-    buzzerT(currentBuzzerTone);
-    ifPrint("proses fade in led");  // led fade in
-    ledFadeIn();
-    if (enableLed) {
-      digitalWrite(ledPin, HIGH);
-    }
-
-    ifPrintln("servo--katup");
-    if (enableServo) {
-      myServo.attach(servoPin, 500, 2500);
-      for (int i = 0; i < perulanganKatup; i++) {
-        ifPrintln("loop katup");
-        myServo.write(servoMaxAngle);  // sebelum, 180
-        delay(servoOpenDelay);         // sebelum, 400
-        myServo.write(servoMinAngle);
-        delay(servoCloseDelay);
-      }
-      delay(200);
-      myServo.detach();
-    }
-    ifPrintln("servo detach");
-    ifPrintln("fungsi servo berhenti");
-    ifPrint("proses fade out led");
-    ledFadeOut();
+  if (perulanganKatup >= 5) {
+    return;  
   }
+  buzzerT(currentBuzzerTone);
+  ifPrint("proses fade in led");  // led fade in
+  ledFadeIn();
+  if (enableLed) {
+    digitalWrite(ledPin, HIGH);
+  }
+
+  ifPrintln("servo--katup");
+  if (enableServo) {
+    myServo.attach(servoPin, 500, 2500);
+    for (int i = 0; i < perulanganKatup; i++) {
+      ifPrintln("loop katup");
+      myServo.write(servoMaxAngle);  // sebelum, 180
+      delay(servoOpenDelay);         // sebelum, 400
+      myServo.write(servoMinAngle);
+      delay(servoCloseDelay);
+    }
+    delay(200);
+    myServo.detach();
+  }
+  ifPrintln("servo detach");
+  ifPrintln("fungsi servo berhenti");
+  ifPrint("proses fade out led");
+  ledFadeOut();
 }
 
 // buzzer
@@ -854,7 +859,10 @@ void wait(unsigned long time) {
 }
 
 // handle wifi otomatis
-bool wifiHandle(String wifi, String password, bool startConnect) {
+bool wifiHandler(String wifi, String password, bool startConnect) {
+  if (webServerIsActive == true || otaIsActive) {
+    return false;
+  }
   static bool printInfo = true;
   static int handleTimeout = 0;
   static bool handlerWifiStatus = false;
@@ -880,7 +888,7 @@ bool wifiHandle(String wifi, String password, bool startConnect) {
   if (WiFi.status() == WL_CONNECTED) { // koneksi berhasil
     handlerWifiStatus = true;
     if (apAktif) {
-      Serial.println("Wi-Fi berhasil terhubung! Mematikan AP...");
+      Serial.println("turn off AP...");
       WiFi.softAPdisconnect(true);
       apAktif = false;
       printInfo = true;
@@ -910,7 +918,7 @@ bool wifiHandle(String wifi, String password, bool startConnect) {
     }
   }
   if (printInfo) {
-    Serial.println("\nconnecting to Wi-Fi");
+    Serial.println("\nwifi connected by wifiHandler");
     Serial.print("ssid: ");
     Serial.println(wifiSsid);
     Serial.print("password: ");
@@ -1072,11 +1080,12 @@ struct FirebaseHandler {
       }
       start = false;
     }
-    return true;
+    return signupOK;
   }
 
   bool setInt(const String& path, int value) {
-    if (isWifiConnect && Firebase.RTDB.setInt(fbdo_s, path, value)) {
+    if (!isWifiConnect) return false;
+    if (Firebase.RTDB.setInt(fbdo_s, path, value)) {
       return true;
     } else {
       return false;
@@ -1084,6 +1093,7 @@ struct FirebaseHandler {
     }
   }
   bool setFloat(const String& path, float value) {
+    if (!isWifiConnect) return false;
     if (isWifiConnect && Firebase.RTDB.setFloat(fbdo_s, path, value)) {
       return true;
     } else {
@@ -1092,6 +1102,7 @@ struct FirebaseHandler {
     }
   }
   bool setBool(const String& path, bool value) {
+    if (!isWifiConnect) return false;
     if (isWifiConnect && Firebase.RTDB.setBool(fbdo_s, path, value)) {
       return true;
     } else {
@@ -1100,6 +1111,7 @@ struct FirebaseHandler {
     }
   }
   bool setString(const String& path, const String& value) {
+    if (!isWifiConnect) return false;
     if (isWifiConnect && Firebase.RTDB.setString(fbdo_s, path, value)) {
       return true;
     } else {
@@ -1108,7 +1120,8 @@ struct FirebaseHandler {
     }
   }
   int getInt(const String& path) {
-    if (isWifiConnect && Firebase.RTDB.getInt(fbdo_s, path)) {
+    if (!isWifiConnect) return -1;
+    if (Firebase.RTDB.getInt(fbdo_s, path)) {
       return fbdo_s->intData();
     } else {
       fbdoError();
@@ -1116,7 +1129,8 @@ struct FirebaseHandler {
     }
   }
   float getFloat(const String& path) {
-    if (isWifiConnect && Firebase.RTDB.getFloat(fbdo_s, path)) {
+    if (!isWifiConnect) return 0.0;
+    if (Firebase.RTDB.getFloat(fbdo_s, path)) {
       return fbdo_s->floatData();
     } else {
       fbdoError();
@@ -1124,7 +1138,8 @@ struct FirebaseHandler {
     }
   }
   bool getBool(const String& path) {
-    if (isWifiConnect && Firebase.RTDB.getBool(fbdo_s, path)) {
+    if (!isWifiConnect) return false;
+    if (Firebase.RTDB.getBool(fbdo_s, path)) {
       return fbdo_s->boolData();
     } else {
       fbdoError();
@@ -1132,7 +1147,8 @@ struct FirebaseHandler {
     }
   }
   String getString(const String& path) {
-    if (isWifiConnect && Firebase.RTDB.getString(fbdo_s, path)) {
+    if (!isWifiConnect) return "";
+    if (Firebase.RTDB.getString(fbdo_s, path)) {
       return fbdo_s->stringData();
     } else {
       fbdoError();
@@ -1219,7 +1235,7 @@ String getAllEeprom() {
 }
 
 // handle OTA
-void otaHandle() {
+void otaHandler() {
   OOOOOOOOOO_codeMarker(1);
   static bool otaInitialized = false;
   static bool apHasDisconnected = true;
@@ -1292,13 +1308,9 @@ void otaHandle() {
 struct TimeClientHandler {
 
   bool start() {
-    static bool start = true;
-    if (start) {
-      timeClient.begin();
-      timeClient.setTimeOffset(25200);  // Offset untuk Waktu Indonesia Barat (WIB)
-      start = false;
-    }
-    return !start;
+    timeClient.begin();
+    timeClient.setTimeOffset(25200);  // Offset untuk Waktu Indonesia Barat (WIB)
+    return true;
   }
 
   String currentTime() {
@@ -1411,14 +1423,14 @@ void commandRunner(String CRcommand) {
       }
       WiFi.disconnect();
       wait(1000);
-      wifiHandle(cmdValue1, cmdValue2, true);
+      wifiHandler(cmdValue1, cmdValue2, true);
 
       if (WiFi.status() == WL_CONNECTED) {
         fbdCommandOutput("new wifi connected");
         saveStringToEEPROM(ssidAddress, cmdValue1);
         saveStringToEEPROM(passwordAddress, cmdValue2);
       } else {
-        wifiHandle(wifiSsid, wifiPassword, true);
+        wifiHandler(wifiSsid, wifiPassword, true);
         fbdCommandOutput("new wifi not connected, connected to last wifi connection");
       }
     } else if (parseCommand == "esp.delay") {  // delay
@@ -1630,6 +1642,54 @@ void commandRunner(String CRcommand) {
 
 */
 
+// webserver handler
+// HTTP example: http://192.168.4.1/ESP?command=haloESP
+// command: <target.command.parameter1,parameter2,...>
+// command example: ESP.setLed.led1=true,led2=false
+struct WebServer { // webServerIsActive
+  bool handle() {
+    static bool hasStarted = false;
+  
+    if (webServerIsActive == true && !hasStarted) {
+      
+      server.on("/ESP", []() {
+        if (server.hasArg("command")) {
+          command = server.arg("command");
+          Serial.println("Pesan diterima: " + command);
+          server.send(200, "text/plain", "Pesan diterima: " + command);
+        } else {
+          server.send(400, "text/plain", "Parameter 'command' tidak ditemukan");
+        }
+      });
+      server.begin();
+      hasStarted = true;
+    } else {
+      server.stop();
+      Serial.println("Webserver stopped");
+      webServerIsActive = false;
+      hasStarted = false;
+      return false;
+    }
+    server.handleClient();
+  }
+  
+  void handle() {
+    if (webServerIsActive) {
+      server.handleClient();
+    }
+  }
+
+  bool sendStr (int code, String message) {
+    if (webServerIsActive) {
+      server.send(code, "text/plain", message);
+      return true;
+    } else {
+      Serial.println("failed webserver, server not active");
+      return false;
+    }
+  }
+};
+WebServer webServer;
 
 
 
@@ -1654,7 +1714,7 @@ void setup() {
 
   wifiSsid = readStringFromEEPROM(ssidAddress);
   wifiPassword = readStringFromEEPROM(passwordAddress);
-  isWifiConnect = wifiHandle(wifiSsid, wifiPassword, true);
+  isWifiConnect = wifiHandler(wifiSsid, wifiPassword, true);
   timeClientHandler.start();
 
   config.api_key = API_KEY;
@@ -1682,18 +1742,20 @@ void loop() {
   OOOOOOOOOO_codeMarker(3);
 
   ifPrintln("loop");
-  isWifiConnect = wifiHandle(wifiSsid, wifiPassword, false);
+  isWifiConnect = wifiHandler(wifiSsid, wifiPassword, false);
   loopRate();
 
   digitalWrite(LED_BUILTIN, HIGH);
 
   // update waktu
-  if (millis() - currentTimeM >= 1000) {
-    currentTimeM = millis();
+  
+  if (millis() - timeClientUpdateDelay >= 1000) {
     currentTime = timeClientHandler.currentTime();
     completeTime = timeClientHandler.completeTime();
+    timeClientUpdateDelay = millis();
   }
-
+ 
+  
   // buzzer start
   if (buzzerStart) {
     buzzerT(7);
@@ -1703,7 +1765,7 @@ void loop() {
   // timeClient update
   OOOOOOOOOO_codeMarker(4);
   /* timeClient.update();
-  if (millis() - currentTimeM >= 1000) {
+  if (millis() - timeClientUpdateDelay >= 1000) {
     OOOOOOOOOO_codeMarker(5);
 
     time_t epochTime = timeClient.getEpochTime();
@@ -1728,7 +1790,7 @@ void loop() {
     }
     completeTime = String(currentYear) + "-" + String(currentMonthStr) + "-" + String(monthDayStr) + " " + String(formattedTime);
 
-    currentTimeM = millis();
+    timeClientUpdateDelay = millis();
   } */
 
   // serial input
@@ -1760,6 +1822,8 @@ void loop() {
         ledFadeOut();
         digitalWrite(ledPin, LOW);
       }
+    } else if (serialCommand == 'z') {
+      codeMarkerPrint = !codeMarkerPrint;
     }
   }
 
@@ -1768,26 +1832,37 @@ void loop() {
     ESP.deepSleepMax();
   }
 
-  button(completeTime);
-  tiltSensor(completeTime);
-  potentiometer(currentTime, completeTime);
-
   OOOOOOOOOO_codeMarker(6);
-  firebaseHandler.start();
-  // cek apakah firebase siap
-  if (Firebase.ready() && signupOK == true) {
+
+  // webserver
+  if (pa) {}
+  server.handleClient();
+
+  // cek apakah sudah signup firebase
+  if (firebaseHandler.start()) {
+    fbdConnected = Firebase.ready();
+  }
+
+  /*
+  if (firebase.ready() && signupOK) {
     fbdConnected = true;
   } else {
     fbdConnected = false;
   }
+  */
+
+  otaHandler();
+  button(completeTime);
+  tiltSensor(completeTime);
+  potentiometer(currentTime, completeTime);
 
   OOOOOOOOOO_codeMarker(7);
   // firebase database
   if (isWifiConnect && fbdConnected) {
     OOOOOOOOOO_codeMarker(8);
+
     // mobile app update
     if (millis() - prevUpMillis >= 3000) {
-      
       mobileLatestUp = firebaseHandler.getString("/mobileLatestUp");
       if (mobileLatestUp != mobileLastUp) {
         mobileLastUp = mobileLatestUp;
@@ -1803,11 +1878,10 @@ void loop() {
     }
 
     // update loop rate
-      if (millis() - prevLoopRateM >= 3000) {
-        firebaseHandler.setFloat("/loopRate", averageHZ);
-        prevLoopRateM = millis();
-      }
-
+    if (millis() - prevLoopRateM >= 3000) {
+      firebaseHandler.setFloat("/loopRate", averageHZ);
+      prevLoopRateM = millis();
+    }
 
     if (firebaseUpdate) {
       Serial.println("firebase update");
@@ -1867,7 +1941,7 @@ void loop() {
       // feeding
       bool throwOut = firebaseHandler.getBool("/feeding/throwOut");
       int feedValue = firebaseHandler.getInt("/feeding/value");
-      if (throwOut && feedValue != 0 && feedValue <= 5) {
+      if (throwOut && feedValue != 0 && feedValue <= 4) {
         Serial.println("servo throwOut");
         servoKatup(feedValue);
         lastFood("fdg", feedValue, completeTime);
@@ -1875,7 +1949,7 @@ void loop() {
         ifPrintln("fb set throwOut false");
       }
 
-      // command ---
+      // command start line
       String command = firebaseHandler.getString("/command/inputCode");
       cmd = parseCommand(command);
       String parseCommand = cmd.command;
@@ -1930,14 +2004,14 @@ void loop() {
           }
           WiFi.disconnect();
           wait(1000);
-          wifiHandle(cmdValue1, cmdValue2, true);
+          wifiHandler(cmdValue1, cmdValue2, true);
 
           if (WiFi.status() == WL_CONNECTED) {
             fbdCommandOutput("new wifi connected");
             saveStringToEEPROM(ssidAddress, cmdValue1);
             saveStringToEEPROM(passwordAddress, cmdValue2);
           } else {
-            wifiHandle(wifiSsid, wifiPassword, true);
+            wifiHandler(wifiSsid, wifiPassword, true);
             fbdCommandOutput("new wifi not connected, connected to last wifi connection");
           }
         } else if (parseCommand == "esp.delay") {  // delay
@@ -2145,7 +2219,7 @@ void loop() {
           fbdCommandOutput("unknown input code, check the command and try again.");
         }
       }
-      // command ---
+      // command end line
 
       firebaseUpdate = false;
       wait(100);
@@ -2172,7 +2246,6 @@ void loop() {
       cooldownK = false;
     }
   }
-  otaHandle();
   yield();
   OOOOOOOOOO_codeMarker(10);
 

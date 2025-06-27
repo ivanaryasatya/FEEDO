@@ -22,7 +22,17 @@
 ! perbaiki loop supaya tidak lambat
 ! firebase tidak dapat autentikasi kadang bisa
 
-//2025
+27/06/2025
+
+- Memperbaiki dan mengubah cara kerja fungsi wifiHandle() (sebelumnya handleWiFi()).
+- Menambahkan fungsi otaHandle() untuk menangani pembaruan OTA.
+- Memperbaiki fungsi wifiConnection() dan menyesuaikan command terkait.
+- Memperbaiki kode setup untuk Firebase.
+- Catatan: Pengambilan data WiFi dari EEPROM masih belum diterapkan, masih menggunakan nilai default.
+- Memperbaiki loop supaya tidak lambat.
+- Memperbaiki masalah autentikasi pada Firebase (kadang tidak dapat autentikasi).
+! perbaiki command supaya mudah digunakan untuk web server 
+
 //2025
 //2025
 //2025
