@@ -82,7 +82,7 @@ bool
   fUpdateP1 = true,
   cooldownK = false,
   bCooldown = false,
-  apAktif = true,
+  apIsActive = true,
   delayP = true,
   firebaseUpdate = true,
   buzzerAct = false,
@@ -858,77 +858,124 @@ void wait(unsigned long time) {
   }
 }
 
-// handle wifi otomatis
-bool wifiHandler(String wifi, String password, bool startConnect) {
-  if (webServerIsActive == true || otaIsActive) {
-    return false;
-  }
-  static bool printInfo = true;
-  static int handleTimeout = 0;
-  static bool handlerWifiStatus = false;
-  if (startConnect) {
-    WiFi.mode(WIFI_AP_STA);
-    WiFi.softAP(APSsid, APPassword);
-    WiFi.hostname("FEEDO-ESP8266");
-    WiFi.begin(wifiSsid, wifiPassword);
-    while (WiFi.status() != WL_CONNECTED) {
-      Serial.print(".");
-      wait(200);
-      handleTimeout++;
-      if (handleTimeout > 300) {
-        handleTimeout = 0;
-        break;
-      }
-    }
-    startConnect = false;
-    printInfo = true;
-    apAktif = true;
-  }
 
-  if (WiFi.status() == WL_CONNECTED) { // koneksi berhasil
-    handlerWifiStatus = true;
-    if (apAktif) {
-      Serial.println("turn off AP...");
-      WiFi.softAPdisconnect(true);
-      apAktif = false;
-      printInfo = true;
-    }
-  } else { //---------------------------- koneksi gagal
-    handlerWifiStatus = false;
-    if (!apAktif) {
-      Serial.println("Wi-Fi terputus! Mengaktifkan AP...");
+struct WifiHandler {
+
+  bool start(bool startConnect) {
+    static bool printInfo = true;
+    static int handleTimeout = 0;
+    static bool handlerWifiStatus = false;
+    if (startConnect) {
+      WiFi.mode(WIFI_AP_STA);
       WiFi.softAP(APSsid, APPassword);
-      apAktif = true;
-    }
-    static unsigned long lastReconnect = 0;
-    if (millis() - lastReconnect > 10000) {  // coba tiap 10 detik
-      Serial.println("Mencoba koneksi ulang ke Wi-Fi...");
+      WiFi.hostname("FEEDO-ESP8266");
       WiFi.begin(wifiSsid, wifiPassword);
       while (WiFi.status() != WL_CONNECTED) {
         Serial.print(".");
         wait(200);
         handleTimeout++;
-        if (handleTimeout > 50) {
-          Serial.println(".");
+        if (handleTimeout > 300) {
           handleTimeout = 0;
           break;
         }
       }
-      lastReconnect = millis();
+      startConnect = false;
+      printInfo = true;
+      apIsActive = true;
     }
+
+    if (WiFi.status() == WL_CONNECTED) { // koneksi berhasil
+      handlerWifiStatus = true;
+      if (apIsActive) {
+        if (!otaIsActive && !webServerIsActive) {
+          Serial.println("turn off AP...");
+          WiFi.softAPdisconnect(true);
+          apIsActive = false;
+        }
+        printInfo = true;
+      }
+    } else { //---------------------------- koneksi gagal
+      handlerWifiStatus = false;
+      if (!apIsActive) {
+        Serial.println("Wi-Fi terputus! Mengaktifkan AP...");
+        WiFi.softAP(APSsid, APPassword);
+        webServer.handle(true);
+        apIsActive = true;
+      }
+      static unsigned long lastReconnect = 0;
+      if (millis() - lastReconnect > 10000) {  // coba tiap 10 detik
+        Serial.println("Mencoba koneksi ulang ke Wi-Fi...");
+        WiFi.begin(wifiSsid, wifiPassword);
+        while (WiFi.status() != WL_CONNECTED) {
+          Serial.print(".");
+          wait(200);
+          handleTimeout++;
+          if (handleTimeout > 50) {
+            Serial.println(".");
+            handleTimeout = 0;
+            break;
+          }
+        }
+        lastReconnect = millis();
+      }
+    }
+    if (printInfo) {
+      Serial.println("\nwifi connected by wifiHandler");
+      Serial.print("ssid: ");
+      Serial.println(wifiSsid);
+      Serial.print("password: ");
+      Serial.println(wifiPassword);
+      Serial.print("connected with IP: ");
+      Serial.println(WiFi.localIP());
+      printInfo = false;
+    }
+    if (apIsActive) {
+      static unsigned long apStartTime = 0;
+      static bool apTimerStarted = false;
+      int numStations = WiFi.softAPgetStationNum();
+      if (numStations > 0) {
+        apTimerStarted = true;
+        apStartTime = millis();
+      } else {
+        if (apTimerStarted && millis() - apStartTime >= 180000) {
+          Serial.println("No AP clients for 3 minutes, disabling AP and webserver...");
+          WiFi.softAPdisconnect(true);
+          webServer.handle(false);
+          apIsActive = false;
+          apTimerStarted = false;
+        }
+      }
+    }
+    return handlerWifiStatus;
   }
-  if (printInfo) {
-    Serial.println("\nwifi connected by wifiHandler");
-    Serial.print("ssid: ");
-    Serial.println(wifiSsid);
-    Serial.print("password: ");
-    Serial.println(wifiPassword);
-    Serial.print("connected with IP: ");
-    Serial.println(WiFi.localIP());
-    printInfo = false;
+  void apMode(bool startAP) {
+    
+    if (startAP) {
+      if (apIsActive) {
+        Serial.println("AP mode is already active.");
+        return;
+      }
+      WiFi.mode(WIFI_AP);
+      WiFi.softAP(APSsid, APPassword);
+      apIsActive = true;
+      Serial.println("AP mode activated.");
+    } else {
+      if (!apIsActive) {
+        Serial.println("AP mode is not active.");
+        return;
+      }
+      WiFi.softAPdisconnect(true);
+      apIsActive = false;
+      Serial.println("AP mode deactivated.");
+    }
+    
   }
-  return handlerWifiStatus;
-}
+  void apsta()
+};
+
+
+// handle wifi otomatis
+
 
 /*
   if (WiFi.status() == WL_CONNECTED) {
@@ -1235,13 +1282,15 @@ String getAllEeprom() {
 }
 
 // handle OTA
-void otaHandler() {
+void otaHandler(bool start) {
   OOOOOOOOOO_codeMarker(1);
   static bool otaInitialized = false;
   static bool apHasDisconnected = true;
 
-  if (currentPos == 5) {
+  if (start) {
     if (!otaInitialized) {
+      webServerIsActive = true;
+      webServer.handle();
       WiFi.softAP(APSsid, APPassword);
 
       ArduinoOTA.onStart([]() {
@@ -1295,7 +1344,7 @@ void otaHandler() {
   } else {
     otaIsActive = false;
     otaInitialized = false;
-    if (!apHasDisconnected) {
+    if (!apHasDisconnected && !webServerIsActive) {
       Serial.println("AP has disconnected, stopping OTA");
       ArduinoOTA.end();
       WiFi.softAPdisconnect(true);
@@ -1304,7 +1353,6 @@ void otaHandler() {
   }
 }
 
-// handler waktu NTP
 struct TimeClientHandler {
 
   bool start() {
@@ -1643,15 +1691,17 @@ void commandRunner(String CRcommand) {
 */
 
 // webserver handler
-// HTTP example: http://192.168.4.1/ESP?command=haloESP
+// HTTP example: http://192.168.4.1/ESP?command=<feedo.feeding.2>
 // command: <target.command.parameter1,parameter2,...>
-// command example: ESP.setLed.led1=true,led2=false
+// command example: <ESP.moveServo.start=0,end=120>
+// command example: <feedo.feeding.2>
 struct WebServer { // webServerIsActive
-  bool handle() {
+  bool handle(bool inF_webServerIsActive) {
     static bool hasStarted = false;
   
-    if (webServerIsActive == true && !hasStarted) {
-      
+    if (inF_webServerIsActive && !hasStarted) {
+      WiFi.softAP(APSsid, APPassword);
+      apIsActive = true;
       server.on("/ESP", []() {
         if (server.hasArg("command")) {
           command = server.arg("command");
@@ -1663,23 +1713,23 @@ struct WebServer { // webServerIsActive
       });
       server.begin();
       hasStarted = true;
+      webServerIsActive = true;
     } else {
       server.stop();
       Serial.println("Webserver stopped");
-      webServerIsActive = false;
+      WiFi.softAPdisconnect(true);
+      apIsActive = false;
+      inF_webServerIsActive = false;
       hasStarted = false;
+      webServerIsActive = false;
       return false;
     }
     server.handleClient();
-  }
-  
-  void handle() {
-    if (webServerIsActive) {
-      server.handleClient();
-    }
+    return hasStarted;
   }
 
   bool sendStr (int code, String message) {
+    handle(true);
     if (webServerIsActive) {
       server.send(code, "text/plain", message);
       return true;
@@ -1688,6 +1738,7 @@ struct WebServer { // webServerIsActive
       return false;
     }
   }
+
 };
 WebServer webServer;
 
@@ -1714,7 +1765,7 @@ void setup() {
 
   wifiSsid = readStringFromEEPROM(ssidAddress);
   wifiPassword = readStringFromEEPROM(passwordAddress);
-  isWifiConnect = wifiHandler(wifiSsid, wifiPassword, true);
+  isWifiConnect = wifiHandler(true);
   timeClientHandler.start();
 
   config.api_key = API_KEY;
@@ -1852,6 +1903,7 @@ void loop() {
   */
 
   otaHandler();
+  webServer.handle(true); 
   button(completeTime);
   tiltSensor(completeTime);
   potentiometer(currentTime, completeTime);
@@ -1883,6 +1935,7 @@ void loop() {
       prevLoopRateM = millis();
     }
 
+    // update firebase
     if (firebaseUpdate) {
       Serial.println("firebase update");
 
@@ -1955,6 +2008,7 @@ void loop() {
       String parseCommand = cmd.command;
       String cmdValue1 = cmd.values[0];
       String cmdValue2 = cmd.values[1];
+      static String wrongBoolValue = "error: wrong value, must be true or false";
 
       for (int i = 0; i < cmd.valueCount; i++) {
         Serial.println("value " + String(i + 1) + ": " + cmd.values[i]);
@@ -2209,8 +2263,45 @@ void loop() {
           if (enableTiltSensor2) {
             fbdCommandOutput("servo permission updated");
           }
-
-        } else {
+        } else if (parseCommand == "wifi.ap") {
+          if (parseCommand == "true") {
+            WiFi.softAP(APSsid, APPassword);
+            apIsActive = true;
+            fbdCommandOutput("AP mode turned on");
+          } else if (parseCommand == "false") {
+            WiFi.softAPdisconnect(true);
+            apIsActive = false;
+            fbdCommandOutput("AP mode turned off");
+          } else {
+            fbdCommandOutput(wrongBoolValue);
+          }
+        } else if (parseCommand == "ota.start") {
+          if (cmdValue1 == "true") {
+            fbdCommandOutput("OTA start");
+            otaHandler(true);}
+          else if (cmdValue1 == "false") {
+            otaHandler(false);
+            fbdCommandOutput("OTA stopped");
+          } else {
+            fbdCommandOutput(wrongBoolValue);
+          }
+        } else if (parseCommand == "webserver.start") {
+          if (cmdValue1 == "true") {
+            webServerIsActive = true;
+            fbdCommandOutput("webserver started");
+          } else if (cmdValue1 == "false") {
+            webServerIsActive = false;
+            fbdCommandOutput("webserver stopped");
+          } else {
+            fbdCommandOutput(wrongBoolValue);
+          }
+        } else if (parseCommand == "webserver.sendStr") {
+          if (webServer.sendStr(200, cmdValue1)) {
+            fbdCommandOutput("webserver send string success");
+          } else {
+            fbdCommandOutput("webserver send string failed");
+          }
+        }else {
           fbdCommandOutput("unknown input code, check the command and try again.");
         }
         if (Firebase.RTDB.setString(&fbdo, "/command/inputCode", "~")) {}
