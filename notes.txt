@@ -33,7 +33,15 @@
 - Memperbaiki masalah autentikasi pada Firebase (kadang tidak dapat autentikasi).
 ! perbaiki command supaya mudah digunakan untuk web server 
 
-//2025
+28/06/2025
+
+- Memperbaiki dan mengubah cara kerja fungsi wifiHandle().
+- Menambahkan fungsi otaHandle() untuk menangani pembaruan OTA.
+- Memperbaiki fungsi wifiConnection() dan menyesuaikan command terkait.
+- Memperbaiki loop supaya tidak lambat.
+- Memperbaiki command supaya mudah digunakan untuk web server.
+! tangani html untuk webserver
+
 //2025
 //2025
 //2025
