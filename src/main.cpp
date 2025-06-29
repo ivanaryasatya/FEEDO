@@ -148,24 +148,131 @@ struct CommandData {
 };
 CommandData cmd;
 
-static const char MAIN_page[] PROGMEM = R"=====(
+static const char main_page[] PROGMEM = R"=====(
 <!DOCTYPE html>
 <html>
+<head>
+  <meta charset="UTF-8">
+  <title>ESP8266 Control Panel</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f2f2f2;
+      padding: 20px;
+      max-width: 500px;
+      margin: auto;
+    }
+
+    a.top-link {
+      display: block;
+      text-align: center;
+      margin-bottom: 20px;
+      font-size: 14px;
+      text-decoration: none;
+      color: #0066cc;
+    }
+
+    a.top-link:hover {
+      text-decoration: underline;
+    }
+
+    h2 {
+      color: #333;
+      text-align: center;
+    }
+
+    .section {
+      background: #fff;
+      border-radius: 10px;
+      padding: 15px 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+
+    label {
+      display: block;
+      margin-top: 10px;
+      font-weight: bold;
+    }
+
+    input[type="text"],
+    input[type="password"] {
+      width: 100%;
+      padding: 8px;
+      margin-top: 5px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+    }
+
+    textarea {
+      width: 100%;
+      height: 80px;
+      padding: 8px;
+      margin-top: 5px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      resize: vertical;
+    }
+
+    .checkbox-group {
+      margin-top: 10px;
+    }
+
+    .checkbox-group input {
+      margin-right: 10px;
+    }
+
+    button {
+      margin-top: 15px;
+      width: 100%;
+      padding: 10px;
+      background-color: #4CAF50;
+      border: none;
+      color: white;
+      font-size: 16px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #45a049;
+    }
+  </style>
+</head>
 <body>
+  <a class="top-link" href="feedo.fardhan.com" target="_blank">
+    🔗 Go to main website (Feedo)
+  </a>
 
-<h2>Circuits4you<h2>
-<h3> HTML Form ESP8266</h3>
+  <h2>ESP8266 Control Panel</h2>
 
-<form action="/action_page">
-  First name:<br>
-  <input type="text" name="firstname" value="Mickey">
-  <br>
-  Last name:<br>
-  <input type="text" name="lastname" value="Mouse">
-  <br><br>
-  <input type="submit" value="Submit">
-</form> 
+  <form action="/action_page" method="POST">
+    <div class="section">
+      <h3>Input / Output</h3>
+      <label for="systemOutput">System Output:</label>
+      <div style="display: flex; align-items: center;">
+      <textarea id="systemOutput" name="systemOutput" readonly style="margin-right: auto;">Waiting for response...</textarea>
+      </div>
+      <label for="commandInput">Command Input:</label>
+      <input type="text" id="commandInput" name="commandInput" placeholder="Enter command">
+    </div>
 
+    <div class="section">
+      <h3>WiFi Settings</h3>
+      <label for="ssid">WiFi SSID:</label>
+      <input type="text" id="ssid" name="ssid" placeholder="My WiFi SSID">
+
+      <label for="password">WiFi Password:</label>
+      <input type="password" id="password" name="password" placeholder="My WiFi Password">
+
+      <div class="checkbox-group">
+      <input type="checkbox" id="disconnect" name="disconnect">
+      <label for="disconnect" style="display: inline;">Disconnect webserver if new WiFi is connected</label>
+      </div>
+    </div>
+
+    <button type="submit">Apply Settings</button>
+  </form>
 </body>
 </html>
 )=====";
@@ -173,24 +280,24 @@ static const char MAIN_page[] PROGMEM = R"=====(
 // --------------------------------- functions ---------------------------------//
 
 // Function to handle the root URL
-void handleRoot() {
- String s = MAIN_page; //Read HTML contents
- server.send(200, "text/html", s); //Send web page
-}
+// void handleRoot() {
+//  String s = MAIN_page; //Read HTML contents
+//  server.send(200, "text/html", s); //Send web page
+// }
 
-void handleForm() {
- String firstName = server.arg("firstname"); 
- String lastName = server.arg("lastname"); 
+// void handleForm() {
+//  String firstName = server.arg("firstname"); 
+//  String lastName = server.arg("lastname"); 
 
- Serial.print("First Name:");
- Serial.println(firstName);
+//  Serial.print("First Name:");
+//  Serial.println(firstName);
 
- Serial.print("Last Name:");
- Serial.println(lastName);
+//  Serial.print("Last Name:");
+//  Serial.println(lastName);
  
- String s = "<a href='/'> Go Back </a>";
- server.send(200, "text/html", s); //Send web page
-}
+//  String s = "<a href='/'> Go Back </a>";
+//  server.send(200, "text/html", s); //Send web page
+// }
 
 // example OOOOOOOOOO_codeMarker();
 void OOOOOOOOOO_codeMarker(byte marker) {
@@ -911,7 +1018,7 @@ void wait(unsigned long time) {
 // command example: <ESP.moveServo.start=0,end=120>
 // command example: <feedo.feeding.2>
 struct WebServer {
-  bool handle(bool inF_webServerIsActive) {
+  static bool handle(bool inF_webServerIsActive) {
     static bool hasStarted = false;
     static bool webServerHasStoped = true;
   
@@ -959,8 +1066,25 @@ struct WebServer {
     }
   }
 
+  static void handleForm()
+  {
+    String newWifiSsid_debug = server.arg("lastname");
+    String newWifiPassword_debug = server.arg("password");
+    String command_debug = server.arg("commandInput");
+    bool reconnectNewWifi_debug = server.hasArg("disconnect");
+    Serial.println("New Wi-Fi SSID: " + newWifiSsid_debug);
+    Serial.println("New Wi-Fi Password: " + newWifiPassword_debug);
+    Serial.println("Command: " + command_debug);
+    Serial.println("Reconnect to new Wi-Fi: " + String(reconnectNewWifi_debug ? trueVal : falseVal));
+  }
+
+  static void handleRoot()
+  {
+    String s = main_page;
+    server.send(200, "text/html", s);
+  }
 };
-WebServer webServer;
+WebServer webServer = WebServer();
 
 // wifi handler
 struct WifiHandler {

@@ -54,6 +54,7 @@ check list:
     auto matikan weserver jika tidak ada device dan status wifi aktif dalam 3 menit
 ! tambahkan timeout ota hanya menyala selama 3 manit
 ! handle wifi saat tidak konek wifi terlalu lama
+! perbaiki handle wifi AP supaya tidak terlalu lama
 
 //2025
 //2025
