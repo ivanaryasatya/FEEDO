@@ -1,0 +1,129 @@
+
+<!-- setelah edit, copy dan paste di main.cpp untuk inisialisasi di arduino -->
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>ESP8266 Control Panel</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f2f2f2;
+      padding: 20px;
+      max-width: 500px;
+      margin: auto;
+    }
+
+    a.top-link {
+      display: block;
+      text-align: center;
+      margin-bottom: 20px;
+      font-size: 14px;
+      text-decoration: none;
+      color: #0066cc;
+    }
+
+    a.top-link:hover {
+      text-decoration: underline;
+    }
+
+    h2 {
+      color: #333;
+      text-align: center;
+    }
+
+    .section {
+      background: #fff;
+      border-radius: 10px;
+      padding: 15px 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+
+    label {
+      display: block;
+      margin-top: 10px;
+      font-weight: bold;
+    }
+
+    input[type="text"],
+    input[type="password"] {
+      width: 100%;
+      padding: 8px;
+      margin-top: 5px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+    }
+
+    textarea {
+      width: 100%;
+      height: 80px;
+      padding: 8px;
+      margin-top: 5px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      resize: vertical;
+    }
+
+    .checkbox-group {
+      margin-top: 10px;
+    }
+
+    .checkbox-group input {
+      margin-right: 10px;
+    }
+
+    button {
+      margin-top: 15px;
+      width: 100%;
+      padding: 10px;
+      background-color: #4CAF50;
+      border: none;
+      color: white;
+      font-size: 16px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #45a049;
+    }
+  </style>
+</head>
+<body>
+  <a class="top-link" href="https://feedo.fardhan.com/" target="_blank">
+    🔗 Go to main website (Feedo)
+  </a>
+
+  <h2>ESP8266 Control Panel</h2>
+
+  <form action="/submit" method="POST">
+    <div class="section">
+      <h3>Input / Output</h3>
+      <label for="systemOutput">System Output:</label>
+      <div style="display: flex; align-items: center;">
+      <textarea id="systemOutput" name="systemOutput" readonly style="margin-right: auto;">Waiting for response...</textarea>
+      </div>
+
+      <label for="commandInput">Command Input:</label>
+      <input type="text" id="commandInput" name="commandInput" placeholder="Enter command">
+    </div>
+
+    <div class="section">
+      <h3>WiFi Settings</h3>
+      <label for="ssid">WiFi SSID:</label>
+      <input type="text" id="ssid" name="ssid" placeholder="My WiFi SSID">
+
+      <label for="password">WiFi Password:</label>
+      <input type="password" id="password" name="password" placeholder="My WiFi Password">
+
+      <div class="checkbox-group">
+      <input type="checkbox" id="disconnect" name="disconnect">
+      <label for="disconnect" style="display: inline;">Disconnect webserver if WiFi is connected</label>
+      </div>
+    </div>
+
+    <button type="submit">Apply Settings</button>
+    </form>
+</body>
+</html>

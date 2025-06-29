@@ -1,0 +1,252 @@
+{
+  "buzzer": {
+    "isBuzzer": false,
+    "tone": 6
+  },
+  "command": {
+    "config": [
+      {
+        "code": "wifi.rssi",
+        "description": "Menampilkan kekuatan sinyal WiFi",
+        "name": "Rssi"
+      },
+      {
+        "code": "wifi.localIp",
+        "description": "Menampilkan alamat IP lokal",
+        "name": "Local ip"
+      },
+      {
+        "code": "wifi.macAdress",
+        "description": "Menampilkan alamat MAC",
+        "name": "Mac adress"
+      },
+      {
+        "code": "wifi.begin {ssid} {password}",
+        "description": "Mengganti jaringan WiFi",
+        "name": "Begin"
+      },
+      {
+        "code": "esp.restart",
+        "description": "Me-restart ESP",
+        "name": "Restart"
+      },
+      {
+        "code": "esp.delay {ms}",
+        "description": "Menghentikan looping program (ms)",
+        "name": "Delay"
+      },
+      {
+        "code": "esp.millis",
+        "description": "Waktu (microsecond) sejak ESP8266 menyala",
+        "name": "Millis"
+      },
+      {
+        "code": "servo.setMaxAngle {angle}",
+        "description": "Mengatur sudut maksimum servo",
+        "name": "Set max angle"
+      },
+      {
+        "code": "servo.setMinAngle {angle}",
+        "description": "Mengatur sudut minimum servo",
+        "name": "Set min angle"
+      },
+      {
+        "code": "servo.setAngle {angle}",
+        "description": "Mengatur sudut servo saat ini",
+        "name": "Set angle"
+      },
+      {
+        "code": "servo.katup {value}",
+        "description": "Menjalankan katup servo",
+        "name": "Katup"
+      },
+      {
+        "code": "led.effect {fedeIn/fadeOut}",
+        "description": "menjalankan efek led",
+        "name": "led effect"
+      },
+      {
+        "code": "pot.currentPos",
+        "description": "cek posisi pilihan potetiometer",
+        "name": "currentPos"
+      },
+      {
+        "code": "led.state {true/false}",
+        "description": "Menyalakan LED",
+        "name": "state"
+      },
+      {
+        "code": "buzzer.tone {tone}",
+        "description": "Memainkan nada pada buzzer",
+        "name": "Tone"
+      },
+      {
+        "code": "ntp.completeTime",
+        "description": "Waktu sekarang dari server NTP",
+        "name": "Complete time"
+      },
+      {
+        "code": "eeprom.get {address}",
+        "description": "Membaca data variable yang disimpan di EEPROM",
+        "name": "Eeprom get data"
+      },
+      {
+        "code": "esp.getFreeHeap",
+        "description": "Melihat RAM (heap) tersisa (byte)",
+        "name": "Get free heap"
+      },
+      {
+        "code": "esp.getHeapFragmentation",
+        "description": "Melihat tingat fregmentasi heap (persentase)",
+        "name": "Get heap fragmentation"
+      },
+      {
+        "code": "esp.getMaxFreeBlockSize",
+        "description": "Melihat blok terbsear dari heap yang tersisa",
+        "name": "Get max free block size"
+      },
+      {
+        "code": "esp.getFlashChipSize",
+        "description": "Melihat ukuran total chip flash (byte)",
+        "name": "Get flash chip size"
+      },
+      {
+        "code": "esp.getFlashChipRealSize",
+        "description": "Melihat ukuran aktual chip flash (byte)",
+        "name": "Get flash chip real size"
+      },
+      {
+        "code": "esp.getFreeSketchSpace",
+        "description": "Melihat ruang kosong untuk kode baru (byte)",
+        "name": "Get free sketch space"
+      },
+      {
+        "code": "esp.getSketchSize",
+        "description": "Melihat ukran firmware yang sedang berjalan (byte)",
+        "name": "Get sketch size"
+      },
+      {
+        "code": "servo.state {true/false}",
+        "description": "Untuk memberhentikan fungsi menggerakkan servo",
+        "name": "servo state"
+      },
+      {
+        "code": "servo.setCloseDelay {ms}",
+        "description": "Mengatur delay atau waktu servo tertutup",
+        "name": "set close delay"
+      },
+      {
+        "code": "servo.setOpenDelay {ms}",
+        "description": "Mengatur delay atau waktu servo terbuka",
+        "name": "Set open delay"
+      },
+      {
+        "code": "eeprom.writeInterger {address} {number}",
+        "description": "menulis angka ke eeprom",
+        "name": "write Interger"
+      },
+      {
+        "code": "eeprom.writeString {address} {text}",
+        "description": " menulis teks ke eeprom ",
+        "name": "Write string"
+      },
+      {
+        "code": "pot.value {true/false}",
+        "description": "cek posisi asli potentiometer",
+        "name": "Value"
+      },
+      {
+        "code": "buzzer.enable {true/false}",
+        "description": "Mengaktifkan atau menonaktifkan fungsi buzzer",
+        "name": "Enable buzzer"
+      },
+      {
+        "code": "led.enable {true/false}",
+        "description": "Mengaktifkan atau menonaktifkan fungsi led",
+        "name": "Enable led"
+      },
+      {
+        "code": "pot.enable {true/false}",
+        "description": "Mengaktifkan atau menonaktifkan fungsi potentiometer",
+        "name": "enable potentiometer"
+      },
+      {
+        "code": "button.enable {true/false}",
+        "description": "Mengaktifkan atau menonaktifkan fungsi button",
+        "name": "Enable button"
+      },
+      {
+        "code": "tiltSensor.enable {true/false}",
+        "description": "Mengaktifkan atau menonaktifkan fungsi tilt sensor",
+        "name": "Enable tilt sensor"
+      },
+      {
+        "code": "eeprom.getAll",
+        "description": "mendapatkan semua data di eeprom",
+        "name": "Eeprom get all"
+      },
+      {
+        "code": "servo.enable {true/false}",
+        "description": "Mengaktifkan atau menonaktifkan fungsi servo",
+        "name": "Enable servo"
+      },
+      {
+        "code": "ota.start",
+        "description": "Memulai upload program menggunakan Over the Air",
+        "name": "OTA"
+      },
+      {
+        "code": "webserver.start",
+        "description": "Hello World",
+        "name": "Start webserver"
+      },
+      {
+        "code": "webserver.end",
+        "description": "Hello World",
+        "name": "End webserver"
+      }
+    ],
+    "inputCode": "",
+    "output": ""
+  },
+  "deepSleepTest": {
+    "wakeup": "22:42"
+  },
+  "espRestart": false,
+  "feeding": {
+    "throwOut": false,
+    "value": 2
+  },
+  "isButton": false,
+  "lastFood": "|btn,1,2025-06-21 06:02:08|fdg,2,2025-06-21 12:15:36|btn,1,2025-06-21 16:00:27|tmr,2,2025-06-21 18:00:00|tmr,2,2025-06-21 23:00:00|tmr,2,2025-06-22 08:00:00|btn,1,2025-06-22 08:04:22|tmr,2,2025-06-22 12:00:00|tmr,2,2025-06-22 18:00:00|tmr,2,2025-06-22 23:00:00|tmr,2,2025-06-23 08:00:00|pot,1,2025-06-23 09:18:05|pot,5,2025-06-23 09:18:23|pot,5,2025-06-23 09:18:49|pot,5,2025-06-23 09:19:10|pot,1,2025-06-23 09:23:14|pot,1,2025-06-23 09:23:27|pot,2,2025-06-23 09:24:28|pot,1,2025-06-23 09:37:33|tmr,2,2025-06-23 12:00:00|tmr,2,2025-06-23 18:00:00|tmr,2,2025-06-23 23:00:00|tmr,2,2025-06-24 08:00:00|tmr,2,2025-06-24 12:00:00|tmr,2,2025-06-24 18:00:00|tmr,2,2025-06-24 23:00:00|pot,1,2025-06-25 07:27:39|pot,5,2025-06-25 07:28:02|pot,5,2025-06-25 07:28:39|tmr,2,2025-06-25 08:00:00|tmr,2,2025-06-25 18:00:25|fdg,2,2025-06-25 18:00:58|pot,1,2025-06-25 18:56:54|pot,2,2025-06-25 18:57:09|pot,5,2025-06-26 08:51:01|pot,5,2025-06-26 08:51:21|pot,5,2025-06-26 09:08:08|pot,1,2025-06-26 09:22:51|pot,5,2025-06-26 09:52:35|pot,1,2025-06-26 10:42:53|tmr,2,2025-06-26 12:00:00|pot,1,2025-06-26 12:21:09|pot,5,2025-06-26 17:15:57|pot,1,2025-06-26 17:28:07|pot,5,2036-02-07 13:28:23|pot,1,2036-02-07 13:28:21|pot,5,2025-06-27 15:11:00|pot,5,2025-06-27 15:19:35|pot,5,2025-06-27 15:21:36|pot,5,2025-06-27 15:25:20",
+  "lastStart": "2025-06-29 14:20:34",
+  "loopRate": 1141.19995,
+  "mobileLatestUp": "2025-06-27 16:07:21.811",
+  "password": {
+    "code": 1234,
+    "isActive": false
+  },
+  "potValue": 0,
+  "setting": [
+    {
+      "katup": 2,
+      "waktu": "08:00"
+    },
+    {
+      "katup": 2,
+      "waktu": "12:00"
+    },
+    {
+      "katup": 2,
+      "waktu": "18:00"
+    },
+    {
+      "katup": 2,
+      "waktu": "23:00"
+    }
+  ],
+  "tiltSensor": {
+    "isTiltSensor": false,
+    "waktu": "2025-02-19 21:30:54"
+  }
+}
