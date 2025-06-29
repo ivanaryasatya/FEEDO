@@ -935,7 +935,7 @@ struct WebServer {
       webServerIsActive = true;
     } else if (!inF_webServerIsActive && !webServerHasStoped && isWifiConnect) {
       server.stop();
-      Serial.println("Webserver stopped");
+      Serial.println("Webserver ended");
       WiFi.softAPdisconnect(true);
       apIsActive = true;
       inF_webServerIsActive = false;
@@ -970,7 +970,6 @@ struct WifiHandler {
     byte handleTimeout = 0;
 
     if (startConnect) {
-      apStaMode(true);
       if (wifiHasChanged) {
         WiFi.begin(newWifiSsid, newWifiPassword);
       } else {
@@ -2373,7 +2372,7 @@ void loop() {
             otaHandler(1);
           } else if (cmdValue1 == falseVal) {
             otaHandler(2);
-            fbdCommandOutput("OTA stopped");
+            fbdCommandOutput("OTA ended");
           } else {
             fbdCommandOutput(wrongBoolValue);
           }

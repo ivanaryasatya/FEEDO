@@ -42,7 +42,19 @@
 - Memperbaiki command supaya mudah digunakan untuk web server.
 ! tangani html untuk webserver
 
-//2025
+29/06/2025
+
+check list:
+    auto connect saat wifi putus
+    nyalakan ota dan matikan ap jika ota mati
+    upload firmware via ota
+    nyalakan ota dengan command
+    auto nyalakan webserver jika wifi putus
+    nyalakan webserver dengan command
+    auto matikan weserver jika tidak ada device dan status wifi aktif dalam 3 menit
+! tambahkan timeout ota hanya menyala selama 3 manit
+! handle wifi saat tidak konek wifi terlalu lama
+
 //2025
 //2025
 //2025
