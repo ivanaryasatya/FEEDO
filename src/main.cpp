@@ -1,3 +1,5 @@
+// webserver IP http://192.168.4.1/
+
 #include <Arduino.h>
 #include <Servo.h>
 #include <NTPClient.h>
@@ -72,6 +74,7 @@ const unsigned int tones[] = { 300, 400, 500, 600, 700, 800, 900, 1000 };
 byte eepromAddress[] = { servoMAAddress, servoMIAAddress, servoODAddress, servoCDAddress, ssidAddress, passwordAddress, enableServoAddr, enableBuzzerAddr, enableLedAddr, enablePotAddr, enableButtonAddr, enableTiltSensorAddr };
 float averageHZ = 225;
 bool
+  systemHasStarted = false,
   signupOK = false,
   serialPrint = false,
   lastSensorState = false,
@@ -1018,7 +1021,9 @@ void wait(unsigned long time) {
 // command example: <ESP.moveServo.start=0,end=120>
 // command example: <feedo.feeding.2>
 struct WebServer {
-  static bool handle(bool inF_webServerIsActive) {
+  // true = memulai webserver, menayalakn ap mode, memulai akan otomastis hanya sekali dipanggil
+  // false = menghentikan webserver, menonaktifkan ap mode, menghentikan akan otomastis hanya sekali dipanggil
+  bool handle(bool inF_webServerIsActive) {
     static bool hasStarted = false;
     static bool webServerHasStoped = true;
   
@@ -1038,17 +1043,14 @@ struct WebServer {
         }
       });
       server.begin();
-      hasStarted = true;
-      webServerIsActive = true;
-    } else if (!inF_webServerIsActive && !webServerHasStoped && isWifiConnect) {
+      hasStarted = webServerIsActive = true;
+      webServerHasStoped = false;
+    } else if (!inF_webServerIsActive && !webServerHasStoped && isWifiConnect && WiFi.softAPgetStationNum() <= 0) {
       server.stop();
       Serial.println("Webserver ended");
       WiFi.softAPdisconnect(true);
-      apIsActive = true;
-      inF_webServerIsActive = false;
-      hasStarted = false;
+      apIsActive = hasStarted = webServerIsActive = false;
       webServerHasStoped = true;
-      webServerIsActive = false;
       return false;
     }
     server.handleClient();
@@ -1085,39 +1087,47 @@ struct WebServer {
   }
 };
 WebServer webServer = WebServer();
-
 // wifi handler
 struct WifiHandler {
 
-  bool autoHandle(bool startConnect) {
+  // mulai koneksi dengan begin()
+  void startConnect() {
     static bool handlerWifiStatus = false;
-    byte handleTimeout = 0;
+    unsigned long handleTimeout = millis();
 
-    if (startConnect) {
-      if (wifiHasChanged) {
-        WiFi.begin(newWifiSsid, newWifiPassword);
-      } else {
-        WiFi.begin(wifiSsid, wifiPassword);
-      }
-      while (WiFi.status() != WL_CONNECTED) {
-        Serial.print(".");
-        wait(200);
-        handleTimeout++;
-        if (handleTimeout >= 75) {
-          return false;
-        }
-      }
-      apIsActive = true;
+    if (wifiHasChanged) {
+      WiFi.begin(newWifiSsid, newWifiPassword);
+    } else {
+      WiFi.begin(wifiSsid, wifiPassword);
+      OOOOOOOOOO_codeMarker(19);
     }
+    while (WiFi.status() != WL_CONNECTED && millis() - handleTimeout < 5000) {
+      OOOOOOOOOO_codeMarker(14);
+      Serial.print(".");
+      wait(200);
+    }
+    OOOOOOOOOO_codeMarker(15);
+    Serial.println(" ");
+    autoCheck();
+    
+  };
 
+  // auto check connect ulang jika wifi terputus
+  void autoCheck() {
+    static bool onceWifiStatusTask = true;
+    
     if (WiFi.status() == WL_CONNECTED) { // koneksi berhasil
-      handlerWifiStatus = true;
-      isWifiConnect = true;
-      if (startConnect) {
+      OOOOOOOOOO_codeMarker(16);
+      if (onceWifiStatusTask) {
+        digitalWrite(LED_BUILTIN, LOW);
+        wait(100);
+        digitalWrite(LED_BUILTIN, HIGH);
         printInfo(1);
+        onceWifiStatusTask = false;
       }
-      if (apIsActive && !otaIsActive && !webServerIsActive) {
-        apMode(false);
+      isWifiConnect = true;
+      if (webServerIsActive) {
+        webServer.handle(false);
       }
       if (wifiHasChanged) {
         saveStringToEEPROM(ssidAddress, newWifiSsid);
@@ -1129,36 +1139,30 @@ struct WifiHandler {
         fbdCommandOutput("New wifi connected");
         wifiHasChanged = false;
       }
-      startConnect = false;
     } else { //---------------------------- koneksi gagal
-      handlerWifiStatus = false;
+      OOOOOOOOOO_codeMarker(17);
       isWifiConnect = false;
-      if (!apIsActive) {
-        Serial.println("Wi-Fi terputus! Mengaktifkan AP & Webserver...");
-        webServerIsActive = true;
+      onceWifiStatusTask = true;
+      if (!webServerIsActive) {
+        Serial.println("Wi-Fi disconnected! Enabling AP & Webserver...");
+        webServer.handle(true);
         printInfo(2);
       }
       static unsigned long lastReconnect = 0;
-      if (millis() - lastReconnect > 15000) {
-        Serial.println("Mencoba koneksi ulang ke Wi-Fi...");
-        startConnect = true;
-        /*WiFi.begin(wifiSsid, wifiPassword);
-        while (WiFi.status() != WL_CONNECTED) {
-          Serial.print(".");
-          wait(200);
-          handleTimeout++;
-          if (handleTimeout > 50) {
-            Serial.println(".");
-            handleTimeout = 0;
-            break;
-          }
-        }*/
-        lastReconnect = millis();
+      if (!otaIsActive && millis() - lastReconnect > 30000) {
+        
+        if (WiFi.softAPgetStationNum() <= 0) {
+          OOOOOOOOOO_codeMarker(18);
+          Serial.println("Trying to reconnect to Wi-Fi...");
+          lastReconnect = millis();
+          startConnect();
+        } else {
+          Serial.println("Cannot attempt reconnect, there is a device connected in AP mode");
+        }
       }
       if (wifiHasChanged) {
         fbdCommandOutput("new wifi not connected, connected to last wifi connection");
         wifiHasChanged = false;
-        startConnect = true;
       }
     }
     if (isWifiConnect && apIsActive) {
@@ -1176,9 +1180,9 @@ struct WifiHandler {
         }
       }
     }
-    return handlerWifiStatus;
   }
 
+  // ke AP mode
   void apMode(bool startAP) {
     
     if (startAP) {
@@ -1201,6 +1205,7 @@ struct WifiHandler {
     
   }
 
+  // ke mode AP STA
   void apStaMode(bool startApSta) {
     if (startApSta) {
       WiFi.mode(WIFI_AP_STA);
@@ -1549,22 +1554,30 @@ String getAllEeprom() {
   return result;
 }
 
+bool otaHasEnded = true;
+bool otaInitialized = false;
+bool ledState = false;
+unsigned long lastBlink = 0;
 // function handle OTA
-// handle = 0
-// start = 1
-// end = 2
-void otaHandler(const byte mode) {
-  OOOOOOOOOO_codeMarker(1);
-  static bool otaInitialized = false;
-  static bool otaHasEnded = true;
 
-  if (mode == 0) {
+struct OtaHandler {
+
+  // auto handle saat dinyalakan atau dimatikan
+  void autoHandle() {
     if (!otaIsActive) {
       return;
     }
     ArduinoOTA.handle();
+    if (millis() - lastBlink >= 500) {
+      ledState = !ledState;
+      digitalWrite(LED_BUILTIN, ledState ? HIGH : LOW);
+      lastBlink = millis();
+    }
+    
   }
-  if (mode == 1) {
+  
+  // start: mulai ota
+  void start() {
     if (!otaInitialized) {
       otaHasEnded = false;
       wifiHandler.apMode(true);
@@ -1601,31 +1614,27 @@ void otaHandler(const byte mode) {
       Serial.println("OTA is ready");
       wifiHandler.printInfo(2);
       Serial.println(WiFi.softAPIP());
-      otaIsActive = true;
-      otaInitialized = true;
+      otaIsActive = otaInitialized = true;
       OOOOOOOOOO_codeMarker(2);
     }
     
-  } else if (mode == 2) {
+  }
+  
+  // end: hentikan ota
+  void end() {
     Serial.println("ended OTA");
-    otaIsActive = false;
-    otaInitialized = false;
+    otaIsActive = otaInitialized = false;
     if (!otaHasEnded) {
+      digitalWrite(LED_BUILTIN, HIGH);
       ArduinoOTA.end();
       if (!webServerIsActive) { wifiHandler.apMode(false); }
       otaHasEnded = true;
     }
   }
-  if (otaIsActive) {
-    static unsigned long lastBlink = 0;
-    static bool ledState = false;
-    if (millis() - lastBlink >= 500) {
-      ledState = !ledState;
-      digitalWrite(LED_BUILTIN, ledState ? HIGH : LOW);
-      lastBlink = millis();
-    }
-  }
-}
+
+  
+};
+OtaHandler otaHandler;
 
 struct TimeClientHandler {
 
@@ -1679,12 +1688,6 @@ struct TimeClientHandler {
   }
 };
 TimeClientHandler timeClientHandler;
-
-/* struct StringBank {
-
-
-};
-StringBank stringBank; */
 
 
 /* commandRunner
@@ -1965,9 +1968,6 @@ void commandRunner(String CRcommand) {
 */
 
 
-
-
-
 // --------------------------------- functions ---------------------------------//
 
 
@@ -1989,7 +1989,7 @@ void setup() {
 
   wifiSsid = readStringFromEEPROM(ssidAddress);
   wifiPassword = readStringFromEEPROM(passwordAddress);
-  isWifiConnect = wifiHandler.autoHandle(true);
+  wifiHandler.startConnect();
   timeClientHandler.start();
 
   config.api_key = API_KEY;
@@ -2014,27 +2014,23 @@ void setup() {
 }
 
 void loop() {
+  ifPrintln("loop");
   OOOOOOOOOO_codeMarker(3);
 
-  ifPrintln("loop");
-  isWifiConnect = wifiHandler.autoHandle(false);
-  loopRate();
-
-  digitalWrite(LED_BUILTIN, HIGH);
-
-  // update waktu
-  
-  if (millis() - timeClientUpdateDelay >= 1000) {
-    currentTime = timeClientHandler.currentTime();
-    completeTime = timeClientHandler.completeTime();
-    timeClientUpdateDelay = millis();
-  }
- 
-  
   // buzzer start
   if (buzzerStart) {
     buzzerT(7);
     buzzerStart = false;
+  }
+
+  wifiHandler.autoCheck();
+  OOOOOOOOOO_codeMarker(20);
+
+  // update waktu
+  if (isWifiConnect &&  millis() - timeClientUpdateDelay >= 1000) {
+    currentTime = timeClientHandler.currentTime();
+    completeTime = timeClientHandler.completeTime();
+    timeClientUpdateDelay = millis();
   }
 
   // timeClient update
@@ -2102,34 +2098,35 @@ void loop() {
     }
   }
 
-  // ESP deep sleep
-  if (currentTime == "00:00") {
-    ESP.deepSleepMax();
+  static unsigned long lastPrintMillis = 0;
+  if (millis() - lastPrintMillis >= 3000) {
+    if (WiFi.getMode() == WIFI_AP || WiFi.getMode() == WIFI_AP_STA) {
+      Serial.println("Access Point AKTIF!");
+    } else {
+      Serial.println("Access Point TIDAK aktif");
+    }
+    lastPrintMillis = millis();
   }
+
+
 
   OOOOOOOOOO_codeMarker(6);
 
-  // cek apakah sudah signup firebase
-  if (firebaseHandler.start()) {
-    fbdConnected = Firebase.ready();
-  }
-
-  /*
-  if (firebase.ready() && signupOK) {
-    fbdConnected = true;
-  } else {
-    fbdConnected = false;
-  }
-  */
-
   // runtime tasks
-  otaHandler(0);
+  loopRate();
+  otaHandler.autoHandle();
   button(completeTime);
   tiltSensor(completeTime);
   webServer.handle(webServerIsActive);
+  if (webServerIsActive) { server.handleClient(); }
   potentiometer(currentTime, completeTime);
+  if (currentTime == "00:00") ESP.deepSleepMax(); // deepsleep
+  if ((fbdConnected = firebaseHandler.start())) fbdConnected = Firebase.ready(); // cek apakah sudah signup firebase
 
   OOOOOOOOOO_codeMarker(7);
+
+  
+  
   // firebase database
   if (isWifiConnect && fbdConnected) {
     OOOOOOOOOO_codeMarker(8);
@@ -2143,19 +2140,19 @@ void loop() {
       }
       prevUpMillis = millis();
     }
-
+    
     // last start
     if (lastStart) {
       firebaseHandler.setString("/lastStart", completeTime);
       lastStart = false;
     }
-
+   
     // update loop rate
     if (millis() - prevLoopRateM >= 3000) {
       firebaseHandler.setFloat("/loopRate", averageHZ);
       prevLoopRateM = millis();
     }
-
+   
     // update firebase
     if (firebaseUpdate) {
       Serial.println("firebase update");
@@ -2229,8 +2226,8 @@ void loop() {
       String parseCommand = cmd.command;
       String cmdValue1 = cmd.values[0];
       String cmdValue2 = cmd.values[1];
-      static const String wrongBoolValue = "error: wrong value, must be true or false";
-      static const String unknownCommand = "unknown input command, please check your command and try again";
+      const String wrongBoolValue = "error: wrong value, must be true or false";
+      const String unknownCommand = "unknown input command, please check your command and try again";
 
       for (int i = 0; i < cmd.valueCount; i++) {
         Serial.println("value " + String(i + 1) + ": " + cmd.values[i]);
@@ -2280,8 +2277,8 @@ void loop() {
           newWifiSsid = cmdValue1;
           newWifiPassword = cmdValue2;
           wifiHasChanged = true;
-          wait(1000);
-          wifiHandler.autoHandle(true);
+          wait(500);
+          wifiHandler.startConnect();
 
         } else if (parseCommand == "esp.delay") {  // delay
           fbdCommandOutput("esp delay start");
@@ -2493,9 +2490,9 @@ void loop() {
         } else if (parseCommand == "ota.run") {
           if (cmdValue1 == trueVal) {
             fbdCommandOutput("OTA start");
-            otaHandler(1);
+            otaHandler.start();
           } else if (cmdValue1 == falseVal) {
-            otaHandler(2);
+            otaHandler.end();
             fbdCommandOutput("OTA ended");
           } else {
             fbdCommandOutput(wrongBoolValue);
@@ -2528,7 +2525,7 @@ void loop() {
       firebaseUpdate = false;
       wait(100);
     }
-    OOOOOOOOOO_codeMarker(9);
+  
   }
 
   // led dan servo sesuai waktu
@@ -2551,6 +2548,7 @@ void loop() {
     }
   }
   yield();
+  systemHasStarted = false;
   OOOOOOOOOO_codeMarker(10);
 
 }

@@ -56,7 +56,15 @@ check list:
 ! handle wifi saat tidak konek wifi terlalu lama
 ! perbaiki handle wifi AP supaya tidak terlalu lama
 
-//2025
+30/06/2025
+
+! perbaiki AP mode yang tidak mau menyala saat wifi tidak connect
++ ota berhasil
+! led tidak berkedip saat ota aktf
+- Memperbaiki mode AP yang tidak aktif saat WiFi gagal connect.
+- Memperbaiki penanganan WiFi saat koneksi gagal terlalu lama.
+- Memperbaiki handle WiFi AP agar tidak terlalu lama aktif.
+
 //2025
 //2025
 //2025
