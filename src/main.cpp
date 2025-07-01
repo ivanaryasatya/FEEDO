@@ -1,4 +1,23 @@
-// webserver IP http://192.168.4.1/
+
+/*
+  Feedo - ESP8266 IoT Smart Feeder
+
+  Feedo adalah sistem smart feeder berbasis ESP8266 yang dapat dikontrol melalui WiFi,
+  Firebase, dan webserver lokal. Sistem ini mampu mengatur pemberian pakan otomatis
+  menggunakan servo, menerima perintah dari aplikasi mobile (Firebase), serta menyediakan
+  panel kontrol berbasis web untuk konfigurasi WiFi dan eksekusi perintah manual.
+  Fitur tambahan meliputi pembacaan sensor (potensiometer, tilt sensor, tombol),
+  notifikasi buzzer, OTA update, dan penyimpanan konfigurasi di EEPROM. Feedo dirancang
+  untuk fleksibilitas penggunaan baik secara online (cloud) maupun offline (local AP/webserver).
+
+  webserver IP http://192.168.4.1/
+  site: https://feedo.fardhan.com/
+  version: 1.0.0
+
+
+
+
+*/
 
 #include <Arduino.h>
 #include <Servo.h>
@@ -140,6 +159,7 @@ const String APSsid = "FEEDO-ESP8266-AP";
 const String APPassword = "ikansegar";
 const String trueVal = "true";
 const String falseVal = "false";
+const String wifiHostName = "FEEDO-ESP8266";
 
 String waktusBaru[24];
 int katupsBaru[24];
@@ -1023,13 +1043,15 @@ void wait(unsigned long time) {
 struct WebServer {
   // true = memulai webserver, menayalakn ap mode, memulai akan otomastis hanya sekali dipanggil
   // false = menghentikan webserver, menonaktifkan ap mode, menghentikan akan otomastis hanya sekali dipanggil
-  bool handle(bool inF_webServerIsActive) {
+  void handle(bool inF_webServerIsActive) {
     static bool hasStarted = false;
     static bool webServerHasStoped = true;
   
     if (inF_webServerIsActive && !hasStarted) {
+      webServerHasStoped = false;
       WiFi.softAP(APSsid, APPassword);
       apIsActive = true;
+      printInfo();
       server.on("/", handleRoot);        
       server.on("/action_page", handleForm);
 
@@ -1044,17 +1066,17 @@ struct WebServer {
       });
       server.begin();
       hasStarted = webServerIsActive = true;
-      webServerHasStoped = false;
-    } else if (!inF_webServerIsActive && !webServerHasStoped && isWifiConnect && WiFi.softAPgetStationNum() <= 0) {
-      server.stop();
-      Serial.println("Webserver ended");
-      WiFi.softAPdisconnect(true);
-      apIsActive = hasStarted = webServerIsActive = false;
-      webServerHasStoped = true;
-      return false;
+      
+    } else if (!inF_webServerIsActive && !webServerHasStoped && isWifiConnect) {
+      if (WiFi.softAPgetStationNum() <= 0) {
+        server.stop();
+        webServerHasStoped = true;
+        Serial.println("Webserver ended");
+        WiFi.softAPdisconnect(true);
+        apIsActive = hasStarted = webServerIsActive = false;
+      }
     }
     server.handleClient();
-    return hasStarted;
   }
 
   bool sendStr (int code, String message) {
@@ -1068,8 +1090,7 @@ struct WebServer {
     }
   }
 
-  static void handleForm()
-  {
+  static void handleForm() {
     String newWifiSsid_debug = server.arg("lastname");
     String newWifiPassword_debug = server.arg("password");
     String command_debug = server.arg("commandInput");
@@ -1080,10 +1101,20 @@ struct WebServer {
     Serial.println("Reconnect to new Wi-Fi: " + String(reconnectNewWifi_debug ? trueVal : falseVal));
   }
 
-  static void handleRoot()
-  {
+  static void handleRoot() {
     String s = main_page;
     server.send(200, "text/html", s);
+  }
+
+  void printInfo() {
+    Serial.print("AP status: ");
+    Serial.println(apIsActive);
+    Serial.print("SSID: ");
+    Serial.println(APSsid);
+    Serial.print("password: ");
+    Serial.println(APPassword);
+    Serial.print("AP IP: ");
+    Serial.println(WiFi.softAPIP());
   }
 };
 WebServer webServer = WebServer();
@@ -1094,17 +1125,19 @@ struct WifiHandler {
   void startConnect() {
     static bool handlerWifiStatus = false;
     unsigned long handleTimeout = millis();
-
+  
+    WiFi.hostname(wifiHostName);
     if (wifiHasChanged) {
       WiFi.begin(newWifiSsid, newWifiPassword);
     } else {
       WiFi.begin(wifiSsid, wifiPassword);
-      OOOOOOOOOO_codeMarker(19);
     }
-    while (WiFi.status() != WL_CONNECTED && millis() - handleTimeout < 5000) {
+    OOOOOOOOOO_codeMarker(19);
+  
+    while (WiFi.status() != WL_CONNECTED && millis() - handleTimeout < 10000) {
       OOOOOOOOOO_codeMarker(14);
       Serial.print(".");
-      wait(200);
+      delay(200);
     }
     OOOOOOOOOO_codeMarker(15);
     Serial.println(" ");
@@ -1117,6 +1150,7 @@ struct WifiHandler {
     static bool onceWifiStatusTask = true;
     
     if (WiFi.status() == WL_CONNECTED) { // koneksi berhasil
+      isWifiConnect = true;
       OOOOOOOOOO_codeMarker(16);
       if (onceWifiStatusTask) {
         digitalWrite(LED_BUILTIN, LOW);
@@ -1125,7 +1159,6 @@ struct WifiHandler {
         printInfo(1);
         onceWifiStatusTask = false;
       }
-      isWifiConnect = true;
       if (webServerIsActive) {
         webServer.handle(false);
       }
@@ -1146,11 +1179,9 @@ struct WifiHandler {
       if (!webServerIsActive) {
         Serial.println("Wi-Fi disconnected! Enabling AP & Webserver...");
         webServer.handle(true);
-        printInfo(2);
       }
       static unsigned long lastReconnect = 0;
-      if (!otaIsActive && millis() - lastReconnect > 30000) {
-        
+      if (!otaIsActive && millis() - lastReconnect > 60000) {
         if (WiFi.softAPgetStationNum() <= 0) {
           OOOOOOOOOO_codeMarker(18);
           Serial.println("Trying to reconnect to Wi-Fi...");
@@ -1158,11 +1189,12 @@ struct WifiHandler {
           startConnect();
         } else {
           Serial.println("Cannot attempt reconnect, there is a device connected in AP mode");
+          lastReconnect = millis();
         }
+        
       }
       if (wifiHasChanged) {
-        fbdCommandOutput("new wifi not connected, connected to last wifi connection");
-        wifiHasChanged = false;
+        fbdCommandOutput("failed to connect to new WiFi");
       }
     }
     if (isWifiConnect && apIsActive) {
@@ -1194,33 +1226,11 @@ struct WifiHandler {
       apIsActive = true;
       Serial.println("AP mode activated.");
     } else {
-      if (!apIsActive) {
-        Serial.println("AP mode is not active.");
-        return;
-      }
       WiFi.softAPdisconnect(true);
       apIsActive = false;
       Serial.println("AP mode deactivated.");
     }
-    
   }
-
-  // ke mode AP STA
-  void apStaMode(bool startApSta) {
-    if (startApSta) {
-      WiFi.mode(WIFI_AP_STA);
-      WiFi.softAP(APSsid, APPassword);
-      WiFi.begin(wifiSsid, wifiPassword);
-      WiFi.hostname("FEEDO-ESP8266");
-      apIsActive = true;
-      Serial.println("AP+STA mode activated.");
-    } else {
-      WiFi.softAPdisconnect(true);
-      apIsActive = false;
-      Serial.println("AP+STA mode deactivated.");
-    }
-  }
-  
   // AP STA mode = 0
   // STA mode = 1
   // AP mode = 2
@@ -1391,6 +1401,7 @@ struct FirebaseHandler {
         OOOOOOOOOO_codeMarker(12);
         config.token_status_callback = tokenStatusCallback;
         Firebase.begin(&config, &auth);
+        Firebase.pause
         Firebase.reconnectWiFi(true);
         signupOK = true;
       } else {

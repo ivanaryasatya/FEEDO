@@ -65,7 +65,14 @@ check list:
 - Memperbaiki penanganan WiFi saat koneksi gagal terlalu lama.
 - Memperbaiki handle WiFi AP agar tidak terlalu lama aktif.
 
-//2025
+01/07/2025
+
+! masalah utama pada wifiHandle
+! perbaiki AP yang tidak muncul
+! wifi sempat gagal konek
+! firebase butuh yang terbaru
+! sempat error dai firebase: time out engine failed
+
 //2025
 //2025
 //2025
