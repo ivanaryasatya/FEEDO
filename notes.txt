@@ -73,7 +73,13 @@ check list:
 ! firebase butuh yang terbaru
 ! sempat error dai firebase: time out engine failed
 
-//2025
+02/07/2025
+
+- Webserver sudah bisa dinyalakan lewat command
+- OTA bisa dinyalakan lewat command
+- Webserver bisa mati otomatis
+- WiFi belum bisa sambung otomatis saat pertama kali dinyalakan
+
 //2025
 //2025
 //2025

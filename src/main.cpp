@@ -12,7 +12,7 @@
 
   webserver IP http://192.168.4.1/
   site: https://feedo.fardhan.com/
-  version: 1.0.0
+  version: 1.2.0
 
 
 
@@ -128,7 +128,8 @@ bool
   codeMarkerPrint = false,
   enableTiltSensor = true,
   webServerIsActive = false,
-  wifiHasChanged = false;
+  wifiHasChanged = false,
+  userActivatedWebServer = false;
 unsigned long
   bCooldownStart = 0,
   sensorDTime = 0,
@@ -1049,6 +1050,7 @@ struct WebServer {
   
     if (inF_webServerIsActive && !hasStarted) {
       webServerHasStoped = false;
+      webServerIsActive = true;
       WiFi.softAP(APSsid, APPassword);
       apIsActive = true;
       printInfo();
@@ -1065,7 +1067,7 @@ struct WebServer {
         }
       });
       server.begin();
-      hasStarted = webServerIsActive = true;
+      hasStarted = true;
       
     } else if (!inF_webServerIsActive && !webServerHasStoped && isWifiConnect) {
       if (WiFi.softAPgetStationNum() <= 0) {
@@ -1076,7 +1078,24 @@ struct WebServer {
         apIsActive = hasStarted = webServerIsActive = false;
       }
     }
-    server.handleClient();
+    if (!isWifiConnect && !webServerIsActive) Serial.println("Wi-Fi disconnected! Enabling AP & Webserver..."), handle(true);
+
+    if (isWifiConnect && webServerIsActive) {
+      static unsigned long apStartTime = 0;
+      static bool apTimerStarted = false;
+      if (WiFi.softAPgetStationNum() > 0) {
+        apTimerStarted = true;
+        apStartTime = millis();
+      } else {
+        if (apTimerStarted && millis() - apStartTime >= 180000) {
+          Serial.println("No AP clients for 3 minutes, disabling AP and webserver...");
+          handle(false);
+          apTimerStarted = false;
+          apStartTime = millis();
+        }
+      }
+    }
+    if (webServerIsActive) server.handleClient();
   }
 
   bool sendStr (int code, String message) {
@@ -1124,8 +1143,12 @@ struct WifiHandler {
   // mulai koneksi dengan begin()
   void startConnect() {
     static bool handlerWifiStatus = false;
+    static bool wifiHasSetToApSta = false;
     unsigned long handleTimeout = millis();
-  
+    if (!wifiHasSetToApSta) {
+      WiFi.mode(WIFI_AP_STA);
+      wifiHasSetToApSta = true;
+    }
     WiFi.hostname(wifiHostName);
     if (wifiHasChanged) {
       WiFi.begin(newWifiSsid, newWifiPassword);
@@ -1134,7 +1157,7 @@ struct WifiHandler {
     }
     OOOOOOOOOO_codeMarker(19);
   
-    while (WiFi.status() != WL_CONNECTED && millis() - handleTimeout < 10000) {
+    while (WiFi.status() != WL_CONNECTED && millis() - handleTimeout < 15000) {
       OOOOOOOOOO_codeMarker(14);
       Serial.print(".");
       delay(200);
@@ -1159,9 +1182,6 @@ struct WifiHandler {
         printInfo(1);
         onceWifiStatusTask = false;
       }
-      if (webServerIsActive) {
-        webServer.handle(false);
-      }
       if (wifiHasChanged) {
         saveStringToEEPROM(ssidAddress, newWifiSsid);
         saveStringToEEPROM(passwordAddress, newWifiPassword);
@@ -1176,12 +1196,8 @@ struct WifiHandler {
       OOOOOOOOOO_codeMarker(17);
       isWifiConnect = false;
       onceWifiStatusTask = true;
-      if (!webServerIsActive) {
-        Serial.println("Wi-Fi disconnected! Enabling AP & Webserver...");
-        webServer.handle(true);
-      }
       static unsigned long lastReconnect = 0;
-      if (!otaIsActive && millis() - lastReconnect > 60000) {
+      if (!otaIsActive && millis() - lastReconnect > 60000 && WiFi.status() != WL_CONNECTED) {
         if (WiFi.softAPgetStationNum() <= 0) {
           OOOOOOOOOO_codeMarker(18);
           Serial.println("Trying to reconnect to Wi-Fi...");
@@ -1195,21 +1211,6 @@ struct WifiHandler {
       }
       if (wifiHasChanged) {
         fbdCommandOutput("failed to connect to new WiFi");
-      }
-    }
-    if (isWifiConnect && apIsActive) {
-      static unsigned long apStartTime = 0;
-      static bool apTimerStarted = false;
-      int numStations = WiFi.softAPgetStationNum();
-      if (numStations > 0) {
-        apTimerStarted = true;
-        apStartTime = millis();
-      } else {
-        if (apTimerStarted && millis() - apStartTime >= 180000) {
-          Serial.println("No AP clients for 3 minutes, disabling AP and webserver...");
-          webServerIsActive = true;
-          apTimerStarted = false;
-        }
       }
     }
   }
@@ -1401,7 +1402,6 @@ struct FirebaseHandler {
         OOOOOOOOOO_codeMarker(12);
         config.token_status_callback = tokenStatusCallback;
         Firebase.begin(&config, &auth);
-        Firebase.pause
         Firebase.reconnectWiFi(true);
         signupOK = true;
       } else {
