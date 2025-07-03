@@ -1,77 +1,77 @@
-#include <ESP8266WiFi.h>
-#include <ESP8266WebServer.h>
+#include <Arduino.h>
+#include <vector>
 
-const char* ssid = "ESP-CMD";
-const char* password = "12345678";
+// format: target.command parameter1 parameter2 ...
+// "led.builtin on 1000"
 
-ESP8266WebServer server(80);
+String target;
+String command;
+std::vector<String> params;
 
-void handleCommand() {
-  String uri = server.uri();  // Contoh: /ESP/wifiMode/set
-  Serial.println("URI: " + uri);
+void parseCommand(String input) {
+  input.trim();  // Buang spasi depan-belakang
+  params.clear();
 
-  // Pisahkan path
-  int i1 = uri.indexOf('/', 1);
-  int i2 = uri.indexOf('/', i1 + 1);
-  int i3 = uri.indexOf('/', i2 + 1);
+  // ambil target.command
+  int spaceIdx = input.indexOf(' ');
+  String head = input.substring(0, spaceIdx);
+  String rest = input.substring(spaceIdx + 1);
 
-  String target1 = uri.substring(i1 + 1, i2);
-  String target2 = uri.substring(i2 + 1, i3 > 0 ? i3 : uri.length());
-  String command = (i3 > 0) ? uri.substring(i3 + 1) : "";
+  int dotIdx = head.indexOf('.');
+  target = head.substring(0, dotIdx);
+  command = head.substring(dotIdx + 1);
 
-  // Ambil parameter
-  String mode = server.hasArg("mode") ? server.arg("mode") : "";
-  String timeStr = server.hasArg("time") ? server.arg("time") : "";
-  String pinStr = server.hasArg("pin") ? server.arg("pin") : "";
-  String state = server.hasArg("state") ? server.arg("state") : "";
-
-  // Eksekusi command
-  if (target1 == "ESP" && target2 == "wifiMode" && command == "set") {
-    if (mode == "AP") {
-      WiFi.mode(WIFI_AP);
-      Serial.println("WiFi diubah ke AP mode");
-      server.send(200, "text/plain", "WiFi mode: AP");
-      return;
-    } else if (mode == "STA") {
-      WiFi.mode(WIFI_STA);
-      Serial.println("WiFi diubah ke STA mode");
-      server.send(200, "text/plain", "WiFi mode: STA");
-      return;
+  // buat parameter
+  int start = 0;
+  while (true) {
+    int sp = rest.indexOf(' ', start);
+    if (sp == -1) {
+      String param = rest.substring(start);
+      if (param.length()) params.push_back(param);
+      break;
     }
+    params.push_back(rest.substring(start, sp));
+    start = sp + 1;
+  }
+}
+
+// Fungsi eksekusi perintah
+void executeCommand() {
+  Serial.println("=== EXECUTING COMMAND ===");
+  Serial.println("Target : " + target);
+  Serial.println("Command: " + command);
+  for (int i = 0; i < params.size(); i++) {
+    Serial.println("Param[" + String(i) + "]: " + params[i]);
   }
 
-  if (target1 == "ESP" && target2 == "led" && command == "set") {
-    int pin = pinStr.toInt();
-    if (pin > 0 && (state == "on" || state == "off")) {
-      pinMode(pin, OUTPUT);
-      digitalWrite(pin, state == "on" ? HIGH : LOW);
-      server.send(200, "text/plain", "LED pin " + pinStr + " di-" + state);
-      return;
+  // Contoh command: led.builtin on 1000
+  if (target == "led" && command == "builtin" && params.size() >= 1) {
+    String state = params[0];
+    int delayTime = (params.size() >= 2) ? params[1].toInt() : 0;
+
+    pinMode(LED_BUILTIN, OUTPUT);
+    digitalWrite(LED_BUILTIN, (state == "on") ? LOW : HIGH);  // LOW = ON (active low LED)
+
+    Serial.println("LED_BUILTIN: " + state);
+    if (delayTime > 0) {
+      delay(delayTime);
+      digitalWrite(LED_BUILTIN, HIGH);  // Matikan setelah delay
+      Serial.println("LED dimatikan setelah " + String(delayTime) + " ms");
     }
+  } else {
+    Serial.println("Perintah tidak dikenali.");
   }
-
-  if (target1 == "ESP" && target2 == "info" && command == "get") {
-    String info = "IP: " + WiFi.softAPIP().toString() + "\n";
-    info += "SSID: " + String(ssid) + "\n";
-    info += "Mode: " + String(WiFi.getMode() == WIFI_AP ? "AP" : "STA");
-    server.send(200, "text/plain", info);
-    return;
-  }
-
-  // Default jika tidak cocok
-  server.send(404, "text/plain", "Perintah tidak ditemukan");
 }
 
 void setup() {
   Serial.begin(115200);
-  WiFi.softAP(ssid, password);
-  Serial.println("AP IP: " + WiFi.softAPIP().toString());
-
-  server.onNotFound(handleCommand);
-  server.begin();
-  Serial.println("Server siap menerima command!");
+  Serial.println("Siap menerima command Serial...");
 }
 
 void loop() {
-  server.handleClient();
+  if (Serial.available()) {
+    String input = Serial.readStringUntil('\n');
+    parseCommand(input);
+    executeCommand();
+  }
 }
