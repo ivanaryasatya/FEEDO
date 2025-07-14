@@ -1,6 +1,9 @@
 
 /*
+
   Feedo - ESP8266 IoT Smart Feeder
+
+
 
   Feedo is an ESP8266-based smart feeder system that can be controlled via WiFi,
   Firebase, and a local webserver. This system is capable of automatic feeding
@@ -10,10 +13,13 @@
   buzzer notifications, OTA updates, and configuration storage in EEPROM. Feedo is
   designed for flexible use both online (cloud) and offline (local AP/webserver).
 
+
+
   Sketch created by: Ivan Aryasatya
   Webserver IP: http://192.168.4.1/
   Site: https://feedo.fardhan.com/
   Version: 1.2.0
+
 */
 #include <Arduino.h>
 #include <Servo.h>
