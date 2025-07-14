@@ -34,8 +34,8 @@
 #include <ESP8266WebServer.h>
 
 
-#define API_KEY "API key is in firebase_secret.cpp"
-#define DATABASE_URL "Database URL is in firebase_secret.cpp"
+#define API_KEY "API_KEY_here" // API key is in firebase_secret.cpp
+#define DATABASE_URL "DATABASE_URL_here" // Database URL is in firebase_secret.cpp
 
 #define ledPin D3
 #define servoPin D5
