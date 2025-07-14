@@ -2,21 +2,18 @@
 /*
   Feedo - ESP8266 IoT Smart Feeder
 
-  Feedo adalah sistem smart feeder berbasis ESP8266 yang dapat dikontrol melalui WiFi,
-  Firebase, dan webserver lokal. Sistem ini mampu mengatur pemberian pakan otomatis
-  menggunakan servo, menerima perintah dari aplikasi mobile (Firebase), serta menyediakan
-  panel kontrol berbasis web untuk konfigurasi WiFi dan eksekusi perintah manual.
-  Fitur tambahan meliputi pembacaan sensor (potensiometer, tilt sensor, tombol),
-  notifikasi buzzer, OTA update, dan penyimpanan konfigurasi di EEPROM. Feedo dirancang
-  untuk fleksibilitas penggunaan baik secara online (cloud) maupun offline (local AP/webserver).
+  Feedo is an ESP8266-based smart feeder system that can be controlled via WiFi,
+  Firebase, and a local webserver. This system is capable of automatic feeding
+  using a servo, receiving commands from a mobile app (Firebase), and provides
+  a web-based control panel for WiFi configuration and manual command execution.
+  Additional features include sensor reading (potentiometer, tilt sensor, button),
+  buzzer notifications, OTA updates, and configuration storage in EEPROM. Feedo is
+  designed for flexible use both online (cloud) and offline (local AP/webserver).
 
-  webserver IP http://192.168.4.1/
-  site: https://feedo.fardhan.com/
-  version: 1.2.0
-
-
-
-
+  Sketch created by: Ivan Aryasatya
+  Webserver IP: http://192.168.4.1/
+  Site: https://feedo.fardhan.com/
+  Version: 1.2.0
 */
 #include <Arduino.h>
 #include <Servo.h>
@@ -37,8 +34,8 @@
 #include <ESP8266WebServer.h>
 
 
-#define API_KEY "AIzaSyALzv1N1Kdh84U_lhwgb3jXlGSy-9EWMyo"
-#define DATABASE_URL "https://feedo-39725-default-rtdb.firebaseio.com/"
+#define API_KEY "API key is in firebase_secret.cpp"
+#define DATABASE_URL "Database URL is in firebase_secret.cpp"
 
 #define ledPin D3
 #define servoPin D5
