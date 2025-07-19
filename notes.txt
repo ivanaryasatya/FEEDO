@@ -80,7 +80,10 @@ check list:
 - Webserver bisa mati otomatis
 - WiFi belum bisa sambung otomatis saat pertama kali dinyalakan
 
-//2025
+19/07/2025
+
+! tambahkan command input via serial
+
 //2025
 //2025
 //2025

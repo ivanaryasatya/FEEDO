@@ -18,7 +18,7 @@
   Sketch created by: Ivan Aryasatya
   Webserver IP: http://192.168.4.1/
   Site: https://feedo.fardhan.com/
-  Version: 1.2.0
+  Version: 1.2.1
 
 */
 #include <Arduino.h>
@@ -148,7 +148,6 @@ unsigned long
 String
   mobileLastUp = "",
   mobileLatestUp = "",
-  command = "",
   currentTime = "99:99",
   completeTime = "",
   currentMonthStr,
@@ -166,13 +165,6 @@ const String wifiHostName = "FEEDO-ESP8266";
 
 String waktusBaru[24];
 int katupsBaru[24];
-struct CommandData {
-  String cmd;
-  String command;
-  String values[10];  // Maksimal 10 value
-  int valueCount;
-};
-CommandData cmd;
 
 static const char main_page[] PROGMEM = R"=====(
 <!DOCTYPE html>
@@ -327,320 +319,341 @@ static const char main_page[] PROGMEM = R"=====(
 
 byte commandSource = 0;
 String target;
-String command;
+String rawCommand;
 std::vector<String> params;
 
 
 void parseCommand(String input) {
-  input.trim();  // Buang spasi depan-belakang
-  params.clear();
-
-  // ambil target.command
-  int spaceIdx = input.indexOf(' ');
-  String head = input.substring(0, spaceIdx);
-  String rest = input.substring(spaceIdx + 1);
-
-  int dotIdx = head.indexOf('.');
-  target = head.substring(0, dotIdx);
-  command = head.substring(dotIdx + 1);
-
-  // buat parameter
-  int start = 0;
-  while (true) {
-    int sp = rest.indexOf(' ', start);
-    if (sp == -1) {
-      String param = rest.substring(start);
-      if (param.length()) params.push_back(param);
-      break;
-    }
-    params.push_back(rest.substring(start, sp));
-    start = sp + 1;
-  }
+  
 }
 
-// Contoh command: led.builtin on 1000
-void executeCommand() {
-  const String wrongBoolValue = "error: wrong value, must be true or false";
-  const String unknownCommand = "unknown input command, please check your command and try again";
-  Serial.println("=== EXECUTING COMMAND ===");
-  Serial.println("Target : " + target);
-  Serial.println("Command: " + command);
-  for (int i = 0; i < params.size(); i++) {
-    Serial.println("Param[" + String(i) + "]: " + params[i]);
+
+
+
+// struct command
+const String wrongBoolValue = "error: wrong value, must be true or false";
+const String unknownCommand = "unknown input command, please check your command and try again";
+struct Command {
+
+  // Contoh command: led.builtin on 1000
+  void parse(String input) {
+    input.trim();  // Buang spasi depan-belakang
+    params.clear();
+
+    // ambil target.command
+    int spaceIdx = input.indexOf(' ');
+    String head = input.substring(0, spaceIdx);
+    String rest = input.substring(spaceIdx + 1);
+
+    int dotIdx = head.indexOf('.');
+    target = head.substring(0, dotIdx);
+    command = head.substring(dotIdx + 1);
+
+    // buat parameter
+    int start = 0;
+    while (true) {
+      int sp = rest.indexOf(' ', start);
+      if (sp == -1) {
+        String param = rest.substring(start);
+        if (param.length()) params.push_back(param);
+        break;
+      }
+      params.push_back(rest.substring(start, sp));
+      start = sp + 1;
+    }
   }
 
-  if (target == "wifi") {  // wifi
-    if (command == "rssi") {
-      long rssi = WiFi.RSSI();
-      commandOutput(String(rssi));
-    } else if (command == "localIp") {
-      commandOutput(WiFi.localIP().toString());
-    } else if (command == "macAddress") {
-      commandOutput(WiFi.macAddress());
-    } else if (command == "begin") {
-      if (params[0].length() >= 30 || params[1].length() >= 30) {
-      commandOutput("ssid atau password lebih dari 30 huruf");
-      return;
-      }
-      newWifiSsid = params[0];
-      newWifiPassword = params[1];
-      wifiHasChanged = true;
-      wait(500);
-      wifiHandler.startConnect();
+  void commandOutput(const String oCommand) {
+    if (oCommand != "~") {
+      if (commandSource == 1) Serial.println("command output: " + oCommand);
+      if (commandSource == 2) (firebaseHandler.setString("/command/output", oCommand));
+      commandSource = 0;
     }
-  } else if (target == "esp") {  // ESP 8266
-    if (command == "restart") {
-      commandOutput("restarting board");
-      firebaseHandler.setString("command/inputCode", "~");
-      ESP.restart();
-    } else if (command == "millis") {
-      commandOutput(String(millis()));
-    } else if (command == "getFreeHeap") {
-      commandOutput(String(ESP.getFreeHeap()));
-    } else if (command == "getHeapFragmentation") {
-      commandOutput(String(ESP.getHeapFragmentation()));
-    } else if (command == "getMaxFreeBlockSize") {
-      commandOutput(String(ESP.getMaxFreeBlockSize()));
-    } else if (command == "getFlashChipSize") {
-      commandOutput(String(ESP.getFlashChipSize()));
-    } else if (command == "getFlashChipRealSize") {
-      commandOutput(String(ESP.getFlashChipRealSize()));
-    } else if (command == "getFreeSketchSpace") {
-      commandOutput(String(ESP.getFreeSketchSpace()));
-    } else if (command == "getSketchSize") {
-      commandOutput(String(ESP.getSketchSize()));
-    } else if (command == "delay") {
-      commandOutput("esp delay start");
-      wait(params[0].toInt());
-      commandOutput("esp delay ended");
-    } 
-    
-  } else if (target == "servo") {  // Servo
-    if (command == "setMinAngle") {
-      if (params[0].toInt() <= 180) {
-        servoMaxAngle = params[0].toInt();
-        accessEEPROM(servoMAAddress, params[0].toInt());
-        commandOutput("servo set max angle");
-      } else {
-        commandOutput("error: angle too large");
-      }
-    } else if (command == "setOpenDelay") {
-      if (params[0].toInt() <= 10000) {
-        servoOpenDelay = params[0].toInt();
-        accessEEPROM(servoODAddress, servoOpenDelay);
-        commandOutput("servo set open delay");
-      } else {
-        commandOutput("error: delay too long");
-      }
-    } else if (command == "setCloseDelay") {
-      if (params[0].toInt() >= 80) {
-        servoCloseDelay = params[0].toInt();
-        accessEEPROM(servoCDAddress, params[0].toInt());
-        commandOutput("servo set close delay");
-      } else {
-        commandOutput("error: delay too fast");
-      } 
-    } else if (command == "katup") {
-      servoKatup(params[0].toInt());
-      commandOutput("valve finished running");
-    } else if (command == "setAngle") {
-      myServo.attach(servoPin, 500, 2500);
-      myServo.write(params[0].toInt());
-      delay(500);
-      myServo.detach();
-      commandOutput("servo set to current angle");
-    } else if (command == "enable") {
-      bool enableServo2 = true;
-      if (params[0] == trueVal) {
-        accessEEPROM(enableServoAddr, 1);
-        enableServo = true;
-      } else if (params[0] == trueVal) {
-        accessEEPROM(enableServoAddr, 0);
-        enableServo = false;
-      } else {
-        commandOutput("error: wrong value");
-        enableServo2 = false;
-      }
-      if (enableServo2) {
-        commandOutput("servo permission updated");
-      }
+  }
+
+  void execute(const String INF_execute_rawCommand) {
+    if (commandSource == 0) return;
+    parse(INF_execute_rawCommand);
+    Serial.println("=== EXECUTING COMMAND ===");
+    Serial.println("Target : " + target);
+    Serial.println("Command: " + command);
+    for (int i = 0; i < params.size(); i++) {
+      Serial.println("Param[" + String(i) + "]: " + params[i]);
     }
-  } else if (target == "buzzer") {  // Buzzer
-    if (command == "tone") {
-      buzzerT(params[0].toInt());
-      commandOutput("buzzer tone complete running")
-    } else if (command == "enable") {
-      bool enableBuzzer2 = true;
-      if (params[0] == trueVal) {
-        accessEEPROM(enableBuzzerAddr, 1);
-        enableBuzzer = true;
-      } else if (params[0] == falseVal) {
-        accessEEPROM(enableBuzzerAddr, 0);
-        enableBuzzer = false;
-      } else {
-        commandOutput("error: wrong value");
-        enableBuzzer2 = false;
-      }
-      if (enableBuzzer2) {
-        commandOutput("buzzer permission updated");
-      }
 
-    } 
-
-  } else if (target == "eeprom") {  // Eeprom
-    if (command == "get") {
-      int intValues = params[0].toInt();
-      if (intValues != ssidAddress && intValues != passwordAddress) {
-        commandOutput(String(accessEEPROM(params[0].toInt(), -1)));
-      } else {
-        commandOutput(readStringFromEEPROM(params[0].toInt()));
-      }
-    } else if (command == "getAll") {
-      String getAllResult = getAllEeprom();
-      getAllResult.replace("\n", "\\n");
-      Serial.println(getAllResult);
-      commandOutput(getAllResult);
-    } else if (command == "writeString") {
-      if (params[0].toInt() == ssidAddress || params[0].toInt() == passwordAddress && params[1].length() <= 30) {
-        saveStringToEEPROM(params[0].toInt(), params[1]);
-        commandOutput("string data is saved");
-      } else {
-        commandOutput("error: destination address saves integer");
-      }
-    } else if (command == "writeInterger") {
-      if (params[0].toInt() != ssidAddress && params[0].toInt() != passwordAddress) {
-        if (params[1].toInt() <= 99999) {
-          accessEEPROM(params[0].toInt(), params[1].toInt());
-          commandOutput("interger data is saved");
-        } else {
-          commandOutput("error: number greater than 99999");
+    if (target == "wifi") {  // wifi
+      if (command == "rssi") {
+        long rssi = WiFi.RSSI();
+        commandOutput(String(rssi));
+      } else if (command == "localIp") {
+        commandOutput(WiFi.localIP().toString());
+      } else if (command == "macAddress") {
+        commandOutput(WiFi.macAddress());
+      } else if (command == "begin") {
+        if (params[0].length() >= 30 || params[1].length() >= 30) {
+        commandOutput("ssid atau password lebih dari 30 huruf");
+        return;
         }
-      } else {
-        commandOutput("error: destination address saves string");
+        newWifiSsid = params[0];
+        newWifiPassword = params[1];
+        wifiHasChanged = true;
+        wait(500);
+        wifiHandler.startConnect();
       }
-    } else if (command == "") {
+    } else if (target == "esp") {  // ESP 8266
+      if (command == "restart") {
+        commandOutput("restarting board");
+        firebaseHandler.setString("command/inputCode", "~");
+        ESP.restart();
+      } else if (command == "millis") {
+        commandOutput(String(millis()));
+      } else if (command == "getFreeHeap") {
+        commandOutput(String(ESP.getFreeHeap()));
+      } else if (command == "getHeapFragmentation") {
+        commandOutput(String(ESP.getHeapFragmentation()));
+      } else if (command == "getMaxFreeBlockSize") {
+        commandOutput(String(ESP.getMaxFreeBlockSize()));
+      } else if (command == "getFlashChipSize") {
+        commandOutput(String(ESP.getFlashChipSize()));
+      } else if (command == "getFlashChipRealSize") {
+        commandOutput(String(ESP.getFlashChipRealSize()));
+      } else if (command == "getFreeSketchSpace") {
+        commandOutput(String(ESP.getFreeSketchSpace()));
+      } else if (command == "getSketchSize") {
+        commandOutput(String(ESP.getSketchSize()));
+      } else if (command == "delay") {
+        commandOutput("esp delay start");
+        wait(params[0].toInt());
+        commandOutput("esp delay ended");
+      } 
+      
+    } else if (target == "servo") {  // Servo
+      if (command == "setMinAngle") {
+        if (params[0].toInt() <= 180) {
+          servoMaxAngle = params[0].toInt();
+          accessEEPROM(servoMAAddress, params[0].toInt());
+          commandOutput("servo set max angle");
+        } else {
+          commandOutput("error: angle too large");
+        }
+      } else if (command == "setOpenDelay") {
+        if (params[0].toInt() <= 10000) {
+          servoOpenDelay = params[0].toInt();
+          accessEEPROM(servoODAddress, servoOpenDelay);
+          commandOutput("servo set open delay");
+        } else {
+          commandOutput("error: delay too long");
+        }
+      } else if (command == "setCloseDelay") {
+        if (params[0].toInt() >= 80) {
+          servoCloseDelay = params[0].toInt();
+          accessEEPROM(servoCDAddress, params[0].toInt());
+          commandOutput("servo set close delay");
+        } else {
+          commandOutput("error: delay too fast");
+        } 
+      } else if (command == "katup") {
+        servoKatup(params[0].toInt());
+        commandOutput("valve finished running");
+      } else if (command == "setAngle") {
+        myServo.attach(servoPin, 500, 2500);
+        myServo.write(params[0].toInt());
+        delay(500);
+        myServo.detach();
+        commandOutput("servo set to current angle");
+      } else if (command == "enable") {
+        bool enableServo2 = true;
+        if (params[0] == trueVal) {
+          accessEEPROM(enableServoAddr, 1);
+          enableServo = true;
+        } else if (params[0] == trueVal) {
+          accessEEPROM(enableServoAddr, 0);
+          enableServo = false;
+        } else {
+          commandOutput("error: wrong value");
+          enableServo2 = false;
+        }
+        if (enableServo2) {
+          commandOutput("servo permission updated");
+        }
+      }
+    } else if (target == "buzzer") {  // Buzzer
+      if (command == "tone") {
+        buzzerT(params[0].toInt());
+        commandOutput("buzzer tone complete running")
+      } else if (command == "enable") {
+        bool enableBuzzer2 = true;
+        if (params[0] == trueVal) {
+          accessEEPROM(enableBuzzerAddr, 1);
+          enableBuzzer = true;
+        } else if (params[0] == falseVal) {
+          accessEEPROM(enableBuzzerAddr, 0);
+          enableBuzzer = false;
+        } else {
+          commandOutput("error: wrong value");
+          enableBuzzer2 = false;
+        }
+        if (enableBuzzer2) {
+          commandOutput("buzzer permission updated");
+        }
 
-    } else if (command == "") {
+      } 
 
-    }
-  } else if (target == "led") {
-    if (command == "state") {  // set led status
-      if (params[0] == trueVal) {
-        digitalWrite(ledPin, HIGH);
-        commandOutput("led true");
-      } else if (params[0] == trueVal) {
-        digitalWrite(ledPin, LOW);
-        commandOutput("led false");
+    } else if (target == "eeprom") {  // Eeprom
+      if (command == "get") {
+        int intValues = params[0].toInt();
+        if (intValues != ssidAddress && intValues != passwordAddress) {
+          commandOutput(String(accessEEPROM(params[0].toInt(), -1)));
+        } else {
+          commandOutput(readStringFromEEPROM(params[0].toInt()));
+        }
+      } else if (command == "getAll") {
+        String getAllResult = getAllEeprom();
+        getAllResult.replace("\n", "\\n");
+        Serial.println(getAllResult);
+        commandOutput(getAllResult);
+      } else if (command == "writeString") {
+        if (params[0].toInt() == ssidAddress || params[0].toInt() == passwordAddress && params[1].length() <= 30) {
+          saveStringToEEPROM(params[0].toInt(), params[1]);
+          commandOutput("string data is saved");
+        } else {
+          commandOutput("error: destination address saves integer");
+        }
+      } else if (command == "writeInterger") {
+        if (params[0].toInt() != ssidAddress && params[0].toInt() != passwordAddress) {
+          if (params[1].toInt() <= 99999) {
+            accessEEPROM(params[0].toInt(), params[1].toInt());
+            commandOutput("interger data is saved");
+          } else {
+            commandOutput("error: number greater than 99999");
+          }
+        } else {
+          commandOutput("error: destination address saves string");
+        }
+      } else if (command == "") {
+
+      } else if (command == "") {
+
       }
-    } else if (command == "effect") { 
-      if (params[0] == "fadeIn") {
-        ledFadeIn();
-        digitalWrite(ledPin, LOW);
-        commandOutput("led fadeing in");
-      } else if (params[0] == "fadeOut") {
-        ledFadeOut();
-        commandOutput("led fadeing out");
+    } else if (target == "led") {
+      if (command == "state") {  // set led status
+        if (params[0] == trueVal) {
+          digitalWrite(ledPin, HIGH);
+          commandOutput("led true");
+        } else if (params[0] == trueVal) {
+          digitalWrite(ledPin, LOW);
+          commandOutput("led false");
+        }
+      } else if (command == "effect") { 
+        if (params[0] == "fadeIn") {
+          ledFadeIn();
+          digitalWrite(ledPin, LOW);
+          commandOutput("led fadeing in");
+        } else if (params[0] == "fadeOut") {
+          ledFadeOut();
+          commandOutput("led fadeing out");
+        }
+      } else if (target == "led.enable") {
+        bool enableLed2 = true;
+        if (params[0] == trueVal) {
+          accessEEPROM(enableLedAddr, 1);
+          enableLed = true;
+        } else if (params[0] == falseVal) {
+          accessEEPROM(enableLedAddr, 0);
+          enableLed = false;
+        } else {
+          commandOutput("error: wrong value");
+          enableLed2 = false;
+        }
+        if (enableLed2) {
+          commandOutput("led permission updated");
+        }
+      } 
+    } else if (target == "pot") {
+      if (target == "enable") {
+        bool enablePot2 = true;
+        if (params[0] == trueVal) {
+          accessEEPROM(enablePotAddr, 1);
+          enablePot = true;
+        } else if (params[0] == falseVal) {
+          accessEEPROM(enablePotAddr, 0);
+          enablePot = false;
+        } else {
+          commandOutput("error: wrong value");
+          enablePot2 = false;
+        }
+        if (enablePot2) {
+          commandOutput("pot permission updated");
+        }
       }
-    } else if (target == "led.enable") {
-      bool enableLed2 = true;
-      if (params[0] == trueVal) {
-        accessEEPROM(enableLedAddr, 1);
-        enableLed = true;
-      } else if (params[0] == falseVal) {
-        accessEEPROM(enableLedAddr, 0);
-        enableLed = false;
-      } else {
-        commandOutput("error: wrong value");
-        enableLed2 = false;
+    } else if (target == "button") { // Button2
+      if (target == "button.enable") {  // enable button
+        bool enableButton2 = true;
+        if (params[0] == trueVal) {
+          accessEEPROM(enableButtonAddr, 1);
+          enableButton = true;
+        } else if (params[0] == falseVal) {
+          accessEEPROM(enableButtonAddr, 0);
+          enableButton = false;
+        } else {
+          commandOutput("error: wrong value");
+          enableButton2 = false;
+        }
+        if (enableButton2) {
+          commandOutput("button permission updated");
+        }
+
       }
-      if (enableLed2) {
-        commandOutput("led permission updated");
+    } else if (target == "tiltSensor") {
+      if (target == "enable") {  // enable tilt sensor
+        bool enableTiltSensor2 = true;
+        if (params[0] == trueVal) {
+          accessEEPROM(enableTiltSensorAddr, 1);
+          enableTiltSensor = true;
+        } else if (params[0] == falseVal) {
+          accessEEPROM(enableTiltSensorAddr, 0);
+          enableTiltSensor = false;
+        } else {
+          commandOutput("error: wrong value");
+          enableTiltSensor2 = false;
+        }
+        if (enableTiltSensor2) {
+          commandOutput("servo permission updated");
+        }
       }
+    } else if (target == "ota") {
+      if (target == "run") {
+        if (params[0] == trueVal) {
+          commandOutput("OTA start");
+          otaHandler.start();
+        } else if (params[0] == falseVal) {
+          otaHandler.end();
+          commandOutput("OTA ended");
+        } else {
+          commandOutput(wrongBoolValue);
+        }
+      }
+      
+
+    } else if (target == "webserver") {
+      if (target == "run") {
+        if (params[0] == trueVal) {
+          webServerIsActive = true;
+          commandOutput("webserver started");
+        } else if (params[0] == falseVal) {
+          webServerIsActive = false;
+          commandOutput("webserver ended");
+        } else {
+          commandOutput(wrongBoolValue);
+        }
+      }
+    } else {
+      commandOutput(unknownCommand);
     } 
-  } else if (target == "pot") {
-    if (target == "enable") {
-      bool enablePot2 = true;
-      if (params[0] == trueVal) {
-        accessEEPROM(enablePotAddr, 1);
-        enablePot = true;
-      } else if (params[0] == falseVal) {
-        accessEEPROM(enablePotAddr, 0);
-        enablePot = false;
-      } else {
-        commandOutput("error: wrong value");
-        enablePot2 = false;
-      }
-      if (enablePot2) {
-        commandOutput("pot permission updated");
-      }
-    }
-  } else if (target == "button") { // Button2
-    if (target == "button.enable") {  // enable button
-      bool enableButton2 = true;
-      if (params[0] == trueVal) {
-        accessEEPROM(enableButtonAddr, 1);
-        enableButton = true;
-      } else if (params[0] == falseVal) {
-        accessEEPROM(enableButtonAddr, 0);
-        enableButton = false;
-      } else {
-        commandOutput("error: wrong value");
-        enableButton2 = false;
-      }
-      if (enableButton2) {
-        commandOutput("button permission updated");
-      }
-
-    }
-  } else if (target == "tiltSensor") {
-    if (target == "enable") {  // enable tilt sensor
-      bool enableTiltSensor2 = true;
-      if (params[0] == trueVal) {
-        accessEEPROM(enableTiltSensorAddr, 1);
-        enableTiltSensor = true;
-      } else if (params[0] == falseVal) {
-        accessEEPROM(enableTiltSensorAddr, 0);
-        enableTiltSensor = false;
-      } else {
-        commandOutput("error: wrong value");
-        enableTiltSensor2 = false;
-      }
-      if (enableTiltSensor2) {
-        commandOutput("servo permission updated");
-      }
-    }
-  } else if (target == "ota") {
-    if (target == "run") {
-      if (params[0] == trueVal) {
-        commandOutput("OTA start");
-        otaHandler.start();
-      } else if (params[0] == falseVal) {
-        otaHandler.end();
-        commandOutput("OTA ended");
-      } else {
-        commandOutput(wrongBoolValue);
-      }
-    }
-    
-
-  } else if (target == "webserver") {
-    if (target == "run") {
-      if (params[0] == trueVal) {
-        webServerIsActive = true;
-        commandOutput("webserver started");
-      } else if (params[0] == falseVal) {
-        webServerIsActive = false;
-        commandOutput("webserver ended");
-      } else {
-        commandOutput(wrongBoolValue);
-      }
-    }
-  } else {
-    commandOutput(unknownCommand);
-  } 
-  firebaseHandler.setString("/command/inputCode", "~");
-}
-
+    firebaseHandler.setString("/command/inputCode", "~");
+  }
+};
+Command command;
 
 // example OOOOOOOOOO_codeMarker();
 void OOOOOOOOOO_codeMarker(byte marker) {
@@ -1639,35 +1652,6 @@ void wifiConnection(String ssid, String password) {
 }
 */
 
-//pengolahan teks
-CommandData parseCommand(String input) {
-
-  CommandData result;
-  result.valueCount = 0;
-  int firstSpace = input.indexOf(' ');
-  if (firstSpace == -1) {
-    result.command = input;
-    return result;
-  }
-  result.command = input.substring(0, firstSpace);
-  String valuesString = input.substring(firstSpace + 1);
-  int spaceIndex;
-  while (result.valueCount < 10 && valuesString.length() > 0) {
-    spaceIndex = valuesString.indexOf(' ');
-
-    if (spaceIndex == -1) {
-      result.values[result.valueCount] = valuesString;
-      result.valueCount++;
-      break;
-    }
-
-    result.values[result.valueCount] = valuesString.substring(0, spaceIndex);
-    result.valueCount++;
-    valuesString = valuesString.substring(spaceIndex + 1);
-  }
-  return result;
-}
-
 // akses ke eeprom interger
 int accessEEPROM(int address, int value) {
   if (address < 0 || address >= EEPROM_SIZE) {
@@ -1839,16 +1823,6 @@ void lastFood(String source, int value, String currentTime) {
       fbdoError();
     }
   }*/
-}
-
-// command ouput firebase
-void commandOutput(const String oCommand) {
-  if (oCommand != "~") {
-    if (firebaseHandler.setString("/command/output", oCommand)) {
-      Serial.println("command output: " + oCommand);
-    }
-  }
-  
 }
 
 void saveStringToEEPROM(int addr, String data) {
@@ -2271,8 +2245,11 @@ void loop() {
         ifPrintln("fb set throwOut false");
       }
 
-      String command = firebaseHandler.getString("/command/inputCode");
-      if () {}
+      rawCommand = firebaseHandler.getString("/command/inputCode");
+      if (rawCommand.length() > 0 && rawCommand != "~") {
+        commandSource = 2;
+        command.execute(rawCommand);
+      }
 
       // command start line
       /*
