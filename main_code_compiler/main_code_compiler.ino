@@ -18,7 +18,7 @@
   Sketch created by: Ivan Aryasatya
   Webserver IP: http://192.168.4.1/
   Site: https://feedo.fardhan.com/
-  Version: 1.2.2
+  Version: 1.2.1
 
 */
 #include <Arduino.h>
@@ -40,8 +40,8 @@
 #include <ESP8266WebServer.h>
 
 
-#define API_KEY "API_KEY_here" // API key is in firebase_secret.cpp
-#define DATABASE_URL "DATABASE_URL_here" // Database URL is in firebase_secret.cpp
+#define API_KEY "AIzaSyALzv1N1Kdh84U_lhwgb3jXlGSy-9EWMyo"
+#define DATABASE_URL "https://feedo-39725-default-rtdb.firebaseio.com/"
 
 #define ledPin D3
 #define servoPin D5

@@ -1,0 +1,61 @@
+{
+  "wifi": {
+    "getRssi": [],
+    "getlocalIp": [],
+    "getMacAddress": [],
+    "begin": {
+      "params": ["ssid", "password"]
+    }
+  },
+  "esp": {
+    "restart": [],
+    "getMillis": [],
+    "getFreeHeap": [],
+    "getHeapFragmentation": [],
+    "getMaxFreeBlockSize": [],
+    "getFlashChipSize": [],
+    "getFlashChipRealSize": [],
+    "getFreeSketchSpace": [],
+    "getSketchSize": [],
+    "setDelay": ["milli second"]
+    }
+  },
+  "servo": {
+    "setMinAngle": ["angle"],
+    "setOpenDelay": ["delay (milli second)"],
+    "setCloseDelay": ["delay (milli second)"],
+    "setAngle": [],
+    "enable": []
+  },
+  "buzzer": {
+    "playNote": ["note", "duration"],
+    "enable": ["true/false"],
+    "playMelody": ["melody"]
+  },
+  "eeprom": {
+    "get": "",
+    "getAll": "",
+    "writeString": ["address", "string"],
+    "writeInterger": ["address", "value"]
+    }
+  },
+  "led": {
+    "state": ["true/false"],
+    "effect": ["fadeIn/fadeOut"],
+    "enable": ["true/false"]
+  },
+  "pot": {
+    "enable": ["true/false"]
+  }
+  "button": ["true/false"]
+  "feedo": {
+    "appLock" : ["true/false"],
+    "setSchedule" : ["time 00:00"],
+    "setValveLoop" : ["loop"],
+    "getLoopRate" : [],
+    "getLatestUpdate" : [],
+    "getLatestUpdate" : [],
+    "getPotPosition" : [],
+    "feeding" : ["feeding"]
+  }
+}
