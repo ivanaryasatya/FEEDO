@@ -18,7 +18,7 @@
   Sketch created by: Ivan Aryasatya
   Webserver IP: http://192.168.4.1/
   Site: https://feedo.fardhan.com/
-  Version: 1.2.1
+  Version: 1.2.2
 
 */
 #include <Arduino.h>
@@ -40,8 +40,8 @@
 #include <ESP8266WebServer.h>
 
 
-#define API_KEY "AIzaSyALzv1N1Kdh84U_lhwgb3jXlGSy-9EWMyo"
-#define DATABASE_URL "https://feedo-39725-default-rtdb.firebaseio.com/"
+#define API_KEY ""
+#define DATABASE_URL ""
 
 #define ledPin D3
 #define servoPin D5
@@ -305,15 +305,15 @@ static const char main_page[] PROGMEM = R"=====(
 // }
 
 // void handleForm() {
-//  String firstName = server.arg("firstname"); 
-//  String lastName = server.arg("lastname"); 
+//  String firstName = server.arg("firstname");
+//  String lastName = server.arg("lastname");
 
 //  Serial.print("First Name:");
 //  Serial.println(firstName);
 
 //  Serial.print("Last Name:");
 //  Serial.println(lastName);
- 
+
 //  String s = "<a href='/'> Go Back </a>";
 //  server.send(200, "text/html", s); //Send web page
 // }
@@ -331,7 +331,7 @@ std::vector<String> params;
 
 
 void parseCommand(String input) {
-  
+
 }
 
 
@@ -375,7 +375,7 @@ String readStringFromEEPROM(int addr) {
 void servoKatup(int perulanganKatup) {
   Serial.println("servo - katup" + perulanganKatup);
   if (perulanganKatup >= 5) {
-    return;  
+    return;
   }
   buzzerT(currentBuzzerTone);
   ifPrint("proses fade in led");  // led fade in
@@ -1066,14 +1066,14 @@ struct WebServer {
   void handle(bool inF_webServerIsActive) {
     static bool hasStarted = false;
     static bool webServerHasStoped = true;
-  
+
     if (inF_webServerIsActive && !hasStarted) {
       webServerHasStoped = false;
       webServerIsActive = true;
       WiFi.softAP(APSsid, APPassword);
       apIsActive = true;
       printInfo();
-      server.on("/", handleRoot);        
+      server.on("/", handleRoot);
       server.on("/action_page", handleForm);
 
       server.on("/pesan", []() {
@@ -1087,7 +1087,7 @@ struct WebServer {
       });
       server.begin();
       hasStarted = true;
-      
+
     } else if (!inF_webServerIsActive && !webServerHasStoped && isWifiConnect) {
       if (WiFi.softAPgetStationNum() <= 0) {
         server.stop();
@@ -1175,7 +1175,7 @@ struct WifiHandler {
       WiFi.begin(wifiSsid, wifiPassword);
     }
     OOOOOOOOOO_codeMarker(19);
-  
+
     while (WiFi.status() != WL_CONNECTED && millis() - handleTimeout < 15000) {
       OOOOOOOOOO_codeMarker(14);
       Serial.print(".");
@@ -1184,13 +1184,13 @@ struct WifiHandler {
     OOOOOOOOOO_codeMarker(15);
     Serial.println(" ");
     autoCheck();
-    
+
   }
 
   // auto check connect ulang jika wifi terputus
   void autoCheck() {
     static bool onceWifiStatusTask = true;
-    
+
     if (WiFi.status() == WL_CONNECTED) { // koneksi berhasil
       isWifiConnect = true;
       OOOOOOOOOO_codeMarker(16);
@@ -1227,7 +1227,7 @@ struct WifiHandler {
           Serial.println("Cannot attempt reconnect, there is a device connected in AP mode");
           lastReconnect = millis();
         }
-        
+
       }
       if (wifiHasChanged) {
         Firebase.RTDB.setString(&fbdo, "/command/output", "failed to connect to new WiFi");
@@ -1237,7 +1237,7 @@ struct WifiHandler {
 
   // ke AP mode
   void apMode(bool startAP) {
-    
+
     if (startAP) {
       if (apIsActive) {
         Serial.println("AP mode is already active.");
@@ -1277,7 +1277,7 @@ struct WifiHandler {
       Serial.println(WiFi.softAPIP());
     }
   }
-    
+
 };
 WifiHandler wifiHandler;
 
@@ -1332,10 +1332,10 @@ void wifiConnection(String ssid, String password) {
     timeout--;
   }
   if (WiFi.status() == WL_CONNECTED) {
-    
+
   } else {
     Serial.println("failed to connect wifi");
-    
+
   }
 }
 */
@@ -1381,8 +1381,8 @@ void fbdoError() {
 // handler firebase
 struct FirebaseHandler {
   FirebaseData* fbdo_s;
-  
-  bool start() { 
+
+  bool start() {
     static bool start = true;
     if (start == true && isWifiConnect) {
       OOOOOOOOOO_codeMarker(11);
@@ -1565,9 +1565,9 @@ struct OtaHandler {
       digitalWrite(LED_BUILTIN, ledState ? HIGH : LOW);
       lastBlink = millis();
     }
-    
+
   }
-  
+
   // start: mulai ota
   void start() {
     if (!otaInitialized) {
@@ -1609,9 +1609,9 @@ struct OtaHandler {
       otaIsActive = otaInitialized = true;
       OOOOOOOOOO_codeMarker(2);
     }
-    
+
   }
-  
+
   // end: hentikan ota
   void end() {
     Serial.println("ended OTA");
@@ -1624,7 +1624,7 @@ struct OtaHandler {
     }
   }
 
-  
+
 };
 OtaHandler otaHandler;
 
@@ -1644,7 +1644,7 @@ struct TimeClientHandler {
   String monthDay() {
     timeClient.update();
     time_t epochTime = timeClient.getEpochTime();
-    struct tm* ptm = gmtime((time_t*)&epochTime); 
+    struct tm* ptm = gmtime((time_t*)&epochTime);
     byte monthDay = ptm->tm_mday;
     if (monthDay < 10) {
       monthDayStr = "0" + String(monthDay);
@@ -1657,7 +1657,7 @@ struct TimeClientHandler {
   String currentMonth() {
     timeClient.update();
     time_t epochTime = timeClient.getEpochTime();
-    struct tm* ptm = gmtime((time_t*)&epochTime); 
+    struct tm* ptm = gmtime((time_t*)&epochTime);
     byte currentMonth = ptm->tm_mon + 1;
     if (currentMonth < 10) {
       currentMonthStr = "0" + String(currentMonth);
@@ -1670,7 +1670,7 @@ struct TimeClientHandler {
   String currentYear() {
     timeClient.update();
     time_t epochTime = timeClient.getEpochTime();
-    struct tm* ptm = gmtime((time_t*)&epochTime); 
+    struct tm* ptm = gmtime((time_t*)&epochTime);
     int currentYear = ptm->tm_year + 1900;
     return String(currentYear);
   }
@@ -1774,8 +1774,8 @@ struct CommandHandler {
         output("esp delay start");
         wait(params[0].toInt());
         output("esp delay ended");
-      } 
-      
+      }
+
     } else if (target == "servo") {  // Servo
       if (command == "setMinAngle") {
         if (params[0].toInt() <= 180) {
@@ -1800,7 +1800,7 @@ struct CommandHandler {
           output("servo set close delay");
         } else {
           output("error: delay too fast");
-        } 
+        }
       } else if (command == "setAngle") {
         myServo.attach(servoPin, 500, 2500);
         myServo.write(params[0].toInt());
@@ -1908,7 +1908,7 @@ struct CommandHandler {
           digitalWrite(ledPin, LOW);
           output("led false");
         }
-      } else if (command == "effect") { 
+      } else if (command == "effect") {
         if (params[0] == "fadeIn") {
           ledFadeIn();
           digitalWrite(ledPin, LOW);
@@ -1932,7 +1932,7 @@ struct CommandHandler {
         if (enableLed2) {
           output("led permission updated");
         }
-      } 
+      }
     } else if (target == "pot") {
       if (command == enable) {
         bool enablePot2 = true;
@@ -1997,7 +1997,7 @@ struct CommandHandler {
           output(wrongBoolValue);
         }
       }
-      
+
 
     } else if (target == "webserver") {
       if (command == "run") {
@@ -2017,7 +2017,13 @@ struct CommandHandler {
       } else if (command == "output") {}
     } else if (target == "feedo") {
       if (command == "appLock") {
-        firebaseHandler.setString("password/isActive", params[0]);
+        bool parameter;
+        if (params[0] == "true") {
+          parameter = true;
+        } else if (params[0] == "false") {
+          parameter = false;
+        }
+        firebaseHandler.setBool("password/isActive", params[0] == "true");
       } else if (command == "setSchedule") {
         waktusBaru[params[0].toInt() + 1] = params[1];
       } else if (command == "setValveLoop") {
@@ -2031,10 +2037,13 @@ struct CommandHandler {
       } else if (command == "feeding") {
         servoKatup(params[0].toInt());
         output("valve finished running");
+      } else if (command == "setOutput") {
+        commandSource = (params[0] == "app") ? 2 : 1;
+        output(params[1]);
       }
     } else {
       output(unknownCommand);
-    } 
+    }
     firebaseHandler.setString("/command/inputCode", "~");
     return true;
   }
@@ -2113,7 +2122,7 @@ void loop() {
     OOOOOOOOOO_codeMarker(5);
 
     time_t epochTime = timeClient.getEpochTime();
-    struct tm* ptm = gmtime((time_t*)&epochTime); 
+    struct tm* ptm = gmtime((time_t*)&epochTime);
 
     int
       monthDay = ptm->tm_mday,            // tanggal
@@ -2173,8 +2182,8 @@ void loop() {
 
   OOOOOOOOOO_codeMarker(7);
 
-  
-  
+
+
   // firebase database
   if (isWifiConnect && fbdConnected) {
     OOOOOOOOOO_codeMarker(8);
@@ -2188,19 +2197,19 @@ void loop() {
       }
       prevUpMillis = millis();
     }
-    
+
     // last start
     if (lastStart) {
       firebaseHandler.setString("/lastStart", completeTime);
       lastStart = false;
     }
-   
+
     // update loop rate
     if (millis() - prevLoopRateM >= 3000) {
       firebaseHandler.setFloat("/loopRate", loopRateHz);
       prevLoopRateM = millis();
     }
-   
+
     // update firebase
     if (firebaseUpdate) {
       Serial.println("firebase update");
@@ -2581,7 +2590,7 @@ void loop() {
       firebaseUpdate = false;
       wait(100);
     }
-  
+
   }
 
   // led dan servo sesuai waktu

@@ -3,9 +3,8 @@
     "getRssi": [],
     "getlocalIp": [],
     "getMacAddress": [],
-    "begin": {
-      "params": ["ssid", "password"]
-    }
+    "getStatus": ["AP/STA"],
+    "begin": ["ssid", "password"]
   },
   "esp": {
     "restart": [],
@@ -24,8 +23,8 @@
     "setMinAngle": ["angle"],
     "setOpenDelay": ["delay (milli second)"],
     "setCloseDelay": ["delay (milli second)"],
-    "setAngle": [],
-    "enable": []
+    "setAngle": ["angle"],
+    "enable": ["true/false"]
   },
   "buzzer": {
     "playNote": ["note", "duration"],
@@ -33,8 +32,8 @@
     "playMelody": ["melody"]
   },
   "eeprom": {
-    "get": "",
-    "getAll": "",
+    "get": [],
+    "getAll": [],
     "writeString": ["address", "string"],
     "writeInterger": ["address", "value"]
     }

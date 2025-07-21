@@ -1748,6 +1748,13 @@ struct CommandHandler {
         wifiHasChanged = true;
         wait(500);
         wifiHandler.startConnect();
+      } else if (command == "getStatus") {
+        if (params[0] == "STA") {
+          output((WiFi.status() == WL_CONNECTED)? "true" : "false");
+        } else if (params[0] == "AP") {
+          output((WiFi.getMode() == WIFI_AP || WiFi.getMode() == WIFI_AP_STA)? "true" : "false");
+        }
+        
       }
     } else if (target == "esp") {  // ESP 8266
       if (command == "restart") {
@@ -1993,7 +2000,9 @@ struct CommandHandler {
         } else if (params[0] == falseVal) {
           otaHandler.end();
           output("OTA ended");
-        } else {
+        } else if (command == "getStatus") {
+          output((otaIsActive)? "true" : "false");
+        }else {
           output(wrongBoolValue);
         }
       }
@@ -2010,6 +2019,8 @@ struct CommandHandler {
         } else {
           output(wrongBoolValue);
         }
+      } else if (command == "getStatus") {
+        output((webServerIsActive)? "true" : "false");
       }
     } else if (target == "serial") {
       if (command == "enablePrint") {
@@ -2017,7 +2028,13 @@ struct CommandHandler {
       } else if (command == "output") {}
     } else if (target == "feedo") {
       if (command == "appLock") {
-        firebaseHandler.setString("password/isActive", params[0]);
+        bool parameter;
+        if (params[0] == "true") {
+          parameter = true;
+        } else if (params[0] == "false") {
+          parameter = false;
+        } 
+        firebaseHandler.setBool("password/isActive", params[0] == "true");
       } else if (command == "setSchedule") {
         waktusBaru[params[0].toInt() + 1] = params[1];
       } else if (command == "setValveLoop") {
@@ -2031,6 +2048,9 @@ struct CommandHandler {
       } else if (command == "feeding") {
         servoKatup(params[0].toInt());
         output("valve finished running");
+      } else if (command == "setOutput") {
+        commandSource = (params[0] == "app") ? 2 : 1;
+        output(params[1]);
       }
     } else {
       output(unknownCommand);
@@ -2595,7 +2615,7 @@ void loop() {
         cooldownK = true;
         cooldownStartK = millis();
         break;
-      }
+      }s
     }
   } else if (cooldownK) {
     if (millis() - cooldownStartK >= 61000) {
