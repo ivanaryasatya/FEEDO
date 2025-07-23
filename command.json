@@ -17,7 +17,6 @@
     "getFreeSketchSpace": [],
     "getSketchSize": [],
     "setDelay": ["milli second"]
-    }
   },
   "servo": {
     "setMinAngle": ["angle"],
@@ -36,7 +35,6 @@
     "getAll": [],
     "writeString": ["address", "string"],
     "writeInterger": ["address", "value"]
-    }
   },
   "led": {
     "state": ["true/false"],
@@ -45,14 +43,27 @@
   },
   "pot": {
     "enable": ["true/false"]
-  }
-  "button": ["true/false"]
+  },
+  "button": {
+    "enable": ["true/false"]
+  },
+  "tiltSensor": {
+    "enable": ["true/false"]
+  },
+  "ota": {
+    "run": ["true/false"]
+  },
+  "webserver": {
+    "run": ["true/false"]
+  },
+  "serial": {
+    "enablePrint": ["true/false"]
+  },
   "feedo": {
     "appLock" : ["true/false"],
     "setSchedule" : ["time 00:00"],
     "setValveLoop" : ["loop"],
     "getLoopRate" : [],
-    "getLatestUpdate" : [],
     "getLatestUpdate" : [],
     "getPotPosition" : [],
     "feeding" : ["feeding"]

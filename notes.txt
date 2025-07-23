@@ -31,7 +31,7 @@
 - Catatan: Pengambilan data WiFi dari EEPROM masih belum diterapkan, masih menggunakan nilai default.
 - Memperbaiki loop supaya tidak lambat.
 - Memperbaiki masalah autentikasi pada Firebase (kadang tidak dapat autentikasi).
-! perbaiki command supaya mudah digunakan untuk web server 
+! perbaiki command supaya mudah digunakan untuk web server
 
 28/06/2025
 
@@ -84,7 +84,10 @@ check list:
 
 ! tambahkan command input via serial
 
-//2025
+23/07/2025
+
+- perbaiki bebrapa kesalahan pada koneksi
+
 //2025
 //2025
 //2025

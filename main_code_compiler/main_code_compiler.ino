@@ -27,7 +27,7 @@
 #include <WiFiUdp.h>
 #include <EEPROM.h>
 #include <ESP8266mDNS.h>
-#include <f:\ivan\Arduino\libraries\2820675-bbe995aa22826a8fbbb6b56ccd56513f9db6cb00\pitches.h>
+#include <f:\Arduino\libraries\2820675-bbe995aa22826a8fbbb6b56ccd56513f9db6cb00\pitches.h>
 #include <ArduinoOTA.h>
 #if defined(ESP32)
 #include <WiFi.h>
@@ -40,8 +40,8 @@
 #include <ESP8266WebServer.h>
 
 
-#define API_KEY ""
-#define DATABASE_URL ""
+#define API_KEY "AIzaSyALzv1N1Kdh84U_lhwgb3jXlGSy-9EWMyo"
+#define DATABASE_URL "https://feedo-39725-default-rtdb.firebaseio.com/"
 
 #define ledPin D3
 #define servoPin D5
@@ -1057,9 +1057,6 @@ void wait(unsigned long time) {
 
 // webserver handler
 // HTTP example: http://192.168.4.1/ESP?command=<feedo.feeding.2>
-// command: <target.command.parameter1,parameter2,...>
-// command example: <ESP.moveServo.start=0,end=120>
-// command example: <feedo.feeding.2>
 struct WebServer {
   // true = memulai webserver, menayalakn ap mode, memulai akan otomastis hanya sekali dipanggil
   // false = menghentikan webserver, menonaktifkan ap mode, menghentikan akan otomastis hanya sekali dipanggil
@@ -1070,6 +1067,7 @@ struct WebServer {
     if (inF_webServerIsActive && !hasStarted) {
       webServerHasStoped = false;
       webServerIsActive = true;
+      Serial.println("AP dinyalakan");
       WiFi.softAP(APSsid, APPassword);
       apIsActive = true;
       printInfo();
@@ -1088,14 +1086,13 @@ struct WebServer {
       server.begin();
       hasStarted = true;
 
-    } else if (!inF_webServerIsActive && !webServerHasStoped && isWifiConnect) {
-      if (WiFi.softAPgetStationNum() <= 0) {
-        server.stop();
-        webServerHasStoped = true;
-        Serial.println("Webserver ended");
-        WiFi.softAPdisconnect(true);
-        apIsActive = hasStarted = webServerIsActive = false;
-      }
+    } else if (!inF_webServerIsActive && !webServerHasStoped && isWifiConnect && WiFi.softAPgetStationNum() <= 0) {
+      apIsActive = hasStarted = webServerIsActive = false;
+      server.stop();
+      webServerHasStoped = true;
+      Serial.println("Webserver ended");
+      WiFi.softAPdisconnect(true);
+
     }
     if (!isWifiConnect && !webServerIsActive) Serial.println("Wi-Fi disconnected! Enabling AP & Webserver..."), handle(true);
 
@@ -1193,10 +1190,11 @@ struct WifiHandler {
 
     if (WiFi.status() == WL_CONNECTED) { // koneksi berhasil
       isWifiConnect = true;
+      webServerIsActive = false;
       OOOOOOOOOO_codeMarker(16);
       if (onceWifiStatusTask) {
         digitalWrite(LED_BUILTIN, LOW);
-        wait(100);
+        delay(200);
         digitalWrite(LED_BUILTIN, HIGH);
         printInfo(1);
         onceWifiStatusTask = false;
@@ -1216,6 +1214,7 @@ struct WifiHandler {
       OOOOOOOOOO_codeMarker(17);
       isWifiConnect = false;
       onceWifiStatusTask = true;
+      webServerIsActive = true;
       static unsigned long lastReconnect = 0;
       if (!otaIsActive && millis() - lastReconnect > 60000 && WiFi.status() != WL_CONNECTED) {
         if (WiFi.softAPgetStationNum() <= 0) {
@@ -1238,24 +1237,20 @@ struct WifiHandler {
   // ke AP mode
   void apMode(bool startAP) {
 
-    if (startAP) {
-      if (apIsActive) {
-        Serial.println("AP mode is already active.");
-        return;
-      }
+    if (startAP && !apIsActive) {
+      Serial.println("AP dinyalakan");
       WiFi.softAP(APSsid, APPassword);
       apIsActive = true;
       Serial.println("AP mode activated.");
-    } else {
+    } else if (!startAP && apIsActive) {
       WiFi.softAPdisconnect(true);
       apIsActive = false;
-      Serial.println("AP mode deactivated.");
     }
   }
   // AP STA mode = 0
   // STA mode = 1
   // AP mode = 2
-  void printInfo(byte mode) {
+  void printInfo(const byte mode) {
     if (mode == 1 || mode == 0) {
       Serial.print("wifi status: ");
       Serial.println(isWifiConnect);
@@ -1719,7 +1714,7 @@ struct CommandHandler {
     }
   }
 
-  // targetA.targetB command param1
+  // target.command  param1 param2 p...
   bool execute(String INF_execute_rawCommand) {
     if (commandSource == 0) return false;
     parse(INF_execute_rawCommand);
@@ -1748,6 +1743,12 @@ struct CommandHandler {
         wifiHasChanged = true;
         wait(500);
         wifiHandler.startConnect();
+      } else if (command == "getApStationNum") {
+        output(String(WiFi.softAPgetStationNum()));
+      } else if (command == "getStatus") {
+        output(String(WiFi.status()));
+      } else if (command == "getMode") {
+        output(String(WiFi.getMode()));
       }
     } else if (target == "esp") {  // ESP 8266
       if (command == "restart") {
@@ -2095,6 +2096,9 @@ void setup() {
   }
 }
 
+
+
+
 void loop() {
   ifPrintln("loop");
   OOOOOOOOOO_codeMarker(3);
@@ -2158,14 +2162,14 @@ void loop() {
   }
 
   static unsigned long lastPrintMillis = 0;
-  if (millis() - lastPrintMillis >= 3000) {
-    if (WiFi.getMode() == WIFI_AP || WiFi.getMode() == WIFI_AP_STA) {
-      Serial.println("Access Point AKTIF!");
-    } else {
-      Serial.println("Access Point TIDAK aktif");
-    }
-    lastPrintMillis = millis();
-  }
+  // if (millis() - lastPrintMillis >= 3000) {
+  //   if (WiFi.getMode() == WIFI_AP || WiFi.getMode() == WIFI_AP_STA) {
+  //     Serial.println("Access Point AKTIF!");
+  //   } else {
+  //     Serial.println("Access Point TIDAK aktif");
+  //   }
+  //   lastPrintMillis = millis();
+  // }
 
   OOOOOOOOOO_codeMarker(6);
 
@@ -2282,310 +2286,6 @@ void loop() {
         commandSource = 2;
         commandHandler.execute(rawCommand);
       }
-
-      // command start line
-      /*
-      String command = firebaseHandler.getString("/command/inputCode");
-      cmd = parseCommand(command);
-      String parseCommand = cmd.command;
-      String params[0] = cmd.values[0];
-      String params[1] = cmd.values[1];
-      const String wrongBoolValue = "error: wrong value, must be true or false";
-      const String unknownCommand = "unknown input command, please check your command and try again";
-
-      for (int i = 0; i < cmd.valueCount; i++) {
-        Serial.println("value " + String(i + 1) + ": " + cmd.values[i]);
-      }
-
-      if (command.indexOf('.') != -1) {
-        Serial.println("command: " + cmd.command);
-
-        if (command == "wifi.rssi") {  // Kekuatan sinyal WiFi
-          long rssi = WiFi.RSSI();
-          output(String(rssi));
-        } else if (command == "wifi.localIp") {  // Alamat IP lokal
-          output(WiFi.localIP().toString());
-        } else if (command == "wifi.macAddress") {  // MAC Address
-          output(WiFi.macAddress());
-        } else if (command == "esp.restart") {  // restart
-          output("restarting board");
-          if (Firebase.RTDB.setString(&fbdo, "/command/inputCode", "~")) {}
-          ESP.restart();
-        } else if (command == "esp.millis") {  // millis
-          output(String(millis()));
-        } else if (command == "ntp.completeTime") {  // waktu NTP
-          output(completeTime);
-        } else if (command == "pot.value") {  // pot value
-          output(String(analogRead(potPin)));
-        } else if (command == "pot.currentPos") {  // pot current pos
-          output(String(currentPos));
-        } else if (command == "esp.getFreeHeap") {  // Free Heap
-          output(String(ESP.getFreeHeap()));
-        } else if (command == "esp.getHeapFragmentation") {  // Fragmentation
-          output(String(ESP.getHeapFragmentation()));
-        } else if (command == "esp.getMaxFreeBlockSize") {  // FreeBlockSize
-          output(String(ESP.getMaxFreeBlockSize()));
-        } else if (command == "esp.getFlashChipSize") {  // FlashChipSize
-          output(String(ESP.getFlashChipSize()));
-        } else if (command == "esp.getFlashChipRealSize") {  // FlashChippReal
-          output(String(ESP.getFlashChipRealSize()));
-        } else if (command == "esp.getFreeSketchSpace") {  // FreeSketchS
-          output(String(ESP.getFreeSketchSpace()));
-        } else if (command == "esp.getSketchSize") {  // SketchSize
-          output(String(ESP.getSketchSize()));
-        } else if (parseCommand == "wifi.begin") {  // ganti wifi
-          if (params[0].length() >= 30 || params[1].length() >= 30) {
-            output("ssid atau password lebih dari 30 huruf");
-            return;
-          }
-          newWifiSsid = params[0];
-          newWifiPassword = params[1];
-          wifiHasChanged = true;
-          wait(500);
-          wifiHandler.startConnect();
-
-        } else if (parseCommand == "esp.delay") {  // delay
-          output("esp delay start");
-          wait(params[0].toInt());
-          output("esp delay ended");
-        } else if (parseCommand == "servo.setMaxAngle") {  // servo max angle
-          if (params[0].toInt() <= 180) {
-            servoMaxAngle = params[0].toInt();
-            accessEEPROM(servoMAAddress, params[0].toInt());
-            output("servo set max angle");
-          } else {
-            output("error: angle too large");
-          }
-        } else if (parseCommand == "servo.setMinAngle") {  // servo min angle
-          if (params[0].toInt() >= 0) {
-            servoMinAngle = params[0].toInt();
-            accessEEPROM(servoMIAAddress, params[0].toInt());
-            delay(1000);
-            output("servo set min angle");
-          } else {
-            output("error: angle too small");
-          }
-
-        } else if (parseCommand == "servo.setOpenDelay") {
-          if (params[0].toInt() <= 10000) {
-            servoOpenDelay = params[0].toInt();
-            accessEEPROM(servoODAddress, servoOpenDelay);
-            output("servo set open delay");
-          } else {
-            output("error: delay too long");
-          }
-
-
-        } else if (parseCommand == "servo.setCloseDelay") {
-          if (params[0].toInt() >= 80) {
-            servoCloseDelay = params[0].toInt();
-            accessEEPROM(servoCDAddress, params[0].toInt());
-            output("servo set close delay");
-          } else {
-            output("error: delay too fast");
-          }
-        } else if (parseCommand == "servo.katup") {  // katup
-          servoKatup(params[0].toInt());
-          output("valve finished running");
-        } else if (parseCommand == "servo.setAngle") {  // set angle
-          myServo.attach(servoPin, 500, 2500);
-          myServo.write(params[0].toInt());
-          delay(500);
-          myServo.detach();
-          output("servo set to current angle");
-        } else if (parseCommand == "buzzer.tone") {  // buzzer tone
-          buzzerT(params[0].toInt());
-          output("buzzer tone complete running");
-        } else if (parseCommand == "eeprom.get") {  // get EEPROM
-          int intValues = params[0].toInt();
-          if (intValues != ssidAddress && intValues != passwordAddress) {
-            output(String(accessEEPROM(params[0].toInt(), -1)));
-          } else {
-            output(readStringFromEEPROM(params[0].toInt()));
-          }
-
-        } else if (parseCommand == "eeprom.getAll") {
-
-          String getAllResult = getAllEeprom();
-          getAllResult.replace("\n", "\\n");
-          Serial.println(getAllResult);
-          output(getAllResult);
-
-        } else if (parseCommand == "led.state") {  // set led status
-          if (params[0] == trueVal) {
-            digitalWrite(ledPin, HIGH);
-            output("led true");
-          } else if (params[0] == trueVal) {
-            digitalWrite(ledPin, LOW);
-            output("led false");
-          }
-        } else if (parseCommand == "led.effect") {  // efel led
-          if (params[0] == "fadeIn") {
-            ledFadeIn();
-            digitalWrite(ledPin, LOW);
-            output("led fadeing in");
-          } else if (params[0] == "fadeOut") {
-            ledFadeOut();
-            output("led fadeing out");
-          }
-        } else if (parseCommand == "eeprom.writeString") {  // write string to eeprom
-          if (params[0].toInt() == ssidAddress || params[0].toInt() == passwordAddress && params[1].length() <= 30) {
-            saveStringToEEPROM(params[0].toInt(), params[1]);
-            output("string data is saved");
-          } else {
-            output("error: destination address saves int");
-          }
-        } else if (parseCommand == "eeprom.writeInterger") {  // write interger to eeprom
-          if (params[0].toInt() != ssidAddress && params[0].toInt() != passwordAddress) {
-            if (params[1].toInt() <= 99999) {
-              accessEEPROM(params[0].toInt(), params[1].toInt());
-              output("interger data is saved");
-            } else {
-              output("error: number greater than 99999");
-            }
-          } else {
-            output("error: destination address saves string");
-          }
-        } else if (parseCommand == "servo.enable") {  // enable servo
-          bool enableServo2 = true;
-          if (params[0] == trueVal) {
-            accessEEPROM(enableServoAddr, 1);
-            enableServo = true;
-          } else if (params[0] == trueVal) {
-            accessEEPROM(enableServoAddr, 0);
-            enableServo = false;
-          } else {
-            output("error: wrong value");
-            enableServo2 = false;
-          }
-          if (enableServo2) {
-            output("servo permission updated");
-          }
-
-        } else if (parseCommand == "buzzer.enable") {  // enable buzzer
-          bool enableBuzzer2 = true;
-          if (params[0] == trueVal) {
-            accessEEPROM(enableBuzzerAddr, 1);
-            enableBuzzer = true;
-          } else if (params[0] == falseVal) {
-            accessEEPROM(enableBuzzerAddr, 0);
-            enableBuzzer = false;
-          } else {
-            output("error: wrong value");
-            enableBuzzer2 = false;
-          }
-          if (enableBuzzer2) {
-            output("buzzer permission updated");
-          }
-
-        } else if (parseCommand == "led.enable") {  // enable led
-          bool enableLed2 = true;
-          if (params[0] == trueVal) {
-            accessEEPROM(enableLedAddr, 1);
-            enableLed = true;
-          } else if (params[0] == falseVal) {
-            accessEEPROM(enableLedAddr, 0);
-            enableLed = false;
-          } else {
-            output("error: wrong value");
-            enableLed2 = false;
-          }
-          if (enableLed2) {
-            output("led permission updated");
-          }
-        } else if (parseCommand == "pot.enable") {  // enable potentometer
-          bool enablePot2 = true;
-          if (params[0] == trueVal) {
-            accessEEPROM(enablePotAddr, 1);
-            enablePot = true;
-          } else if (params[0] == falseVal) {
-            accessEEPROM(enablePotAddr, 0);
-            enablePot = false;
-          } else {
-            output("error: wrong value");
-            enablePot2 = false;
-          }
-          if (enablePot2) {
-            output("pot permission updated");
-          }
-        } else if (parseCommand == "button.enable") {  // enable button
-          bool enableButton2 = true;
-          if (params[0] == trueVal) {
-            accessEEPROM(enableButtonAddr, 1);
-            enableButton = true;
-          } else if (params[0] == falseVal) {
-            accessEEPROM(enableButtonAddr, 0);
-            enableButton = false;
-          } else {
-            output("error: wrong value");
-            enableButton2 = false;
-          }
-          if (enableButton2) {
-            output("button permission updated");
-          }
-
-        } else if (parseCommand == "tiltSensor.enable") {  // enable tilt sensor
-          bool enableTiltSensor2 = true;
-          if (params[0] == trueVal) {
-            accessEEPROM(enableTiltSensorAddr, 1);
-            enableTiltSensor = true;
-          } else if (params[0] == falseVal) {
-            accessEEPROM(enableTiltSensorAddr, 0);
-            enableTiltSensor = false;
-          } else {
-            output("error: wrong value");
-            enableTiltSensor2 = false;
-          }
-          if (enableTiltSensor2) {
-            output("servo permission updated");
-          }
-        } else if (parseCommand == "wifi.ap") {
-          if (parseCommand == trueVal) {
-            WiFi.softAP(APSsid, APPassword);
-            apIsActive = true;
-            output("AP mode turned on");
-          } else if (parseCommand == falseVal) {
-            WiFi.softAPdisconnect(true);
-            apIsActive = false;
-            output("AP mode turned off");
-          } else {
-            output(wrongBoolValue);
-          }
-        } else if (parseCommand == "ota.run") {
-          if (params[0] == trueVal) {
-            output("OTA start");
-            otaHandler.start();
-          } else if (params[0] == falseVal) {
-            otaHandler.end();
-            output("OTA ended");
-          } else {
-            output(wrongBoolValue);
-          }
-        } else if (parseCommand == "webserver.run") {
-          if (params[0] == trueVal) {
-            webServerIsActive = true;
-            output("webserver started");
-          } else if (params[0] == falseVal) {
-            webServerIsActive = false;
-            output("webserver ended");
-          } else {
-            output(wrongBoolValue);
-          }
-        } else if (parseCommand == "webserver.sendStr") {
-          if (webServer.sendStr(200, params[0])) {
-            output("webserver send string success");
-          } else {
-            output("webserver send string failed");
-          }
-        } else {
-          output(unknownCommand);
-        }
-        firebaseHandler.setString("/command/inputCode", "~");
-      } else {
-        output(unknownCommand);
-      } */
-
-      // command end line
 
       firebaseUpdate = false;
       wait(100);
