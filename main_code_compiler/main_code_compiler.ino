@@ -40,8 +40,8 @@
 #include <ESP8266WebServer.h>
 
 
-#define API_KEY "AIzaSyALzv1N1Kdh84U_lhwgb3jXlGSy-9EWMyo"
-#define DATABASE_URL "https://feedo-39725-default-rtdb.firebaseio.com/"
+#define API_KEY "API_KEY_here"
+#define DATABASE_URL "DATABASE_URL_here"
 
 #define ledPin D3
 #define servoPin D5
