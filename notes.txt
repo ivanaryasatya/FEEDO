@@ -88,8 +88,15 @@ check list:
 
 - perbaiki bebrapa kesalahan pada koneksi
 
-//2025
-//2025
+26/07/2025
+
+- ubah beberpaa struct menjadi class
+- tambahkan fitur untuk eeprom
+- oerganisir fungsi dan variabel
+! perbaiki handler wifi
+! perbaiki penanganan mode AP
+! firebase belum bisa terhubung dan sinkron
+
 //2025
 //2025
 //2025

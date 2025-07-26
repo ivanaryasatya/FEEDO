@@ -38,7 +38,7 @@
 #include "addons/TokenHelper.h"
 #include "addons/RTDBHelper.h"
 #include <ESP8266WebServer.h>
-
+#include <firebase_secret.h>
 
 #define API_KEY "API_KEY_here"
 #define DATABASE_URL "DATABASE_URL_here"
@@ -75,10 +75,9 @@ byte
 ;
 
 int
-  totalTime = defaultInt,
+  totalTime = defaultInt;
 
 const unsigned int tones[] = { 300, 400, 500, 600, 700, 800, 900, 1000 };
-byte eepromAddress[] = { servoMAAddress, servoMIAAddress, servoODAddress, servoCDAddress, ssidAddress, passwordAddress, enableServoAddr, enableBuzzerAddr, enableLedAddr, enablePotAddr, enableButtonAddr, enableTiltSensorAddr };
 float loopRateHz = 225;
 bool
   systemHasStarted = false,
@@ -106,11 +105,6 @@ bool
   isWifiConnect = false,
   fbdConnected = false,
   lastStart = true,
-  enableServo = true,
-  enableBuzzer = true,
-  enableLed = true,
-  enablePot = true,
-  enableButton = true,
   lastWifiStatus = false,
   otaIsActive = false,
   codeMarkerPrint = false,
@@ -138,8 +132,6 @@ String
   completeTime = defaultStr,
   currentMonthStr,
   monthDayStr,
-  wifiSsid = defaultStr,
-  wifiPassword = defaultStr,
   newWifiSsid = defaultStr,
   newWifiPassword = defaultStr,
   serialMessage = defaultStr,
@@ -173,17 +165,18 @@ unsigned int
   servoCloseDelay = defaultInt
 ;
 bool
-  enableServo,
-  enableBuzzer,
-  enableLed,
-  enablePot,
-  enableButton,
-  enableTiltSensor
+  enableServo = true,
+  enableBuzzer = true,
+  enableLed = true,
+  enablePot = true,
+  enableButton = true,
+  enableTiltSenso = true
 ;
 String
   wifiSsid = defaultStr,
   wifiPassword = defaultStr
 ;
+byte eepromAddress[] = { servoMaxAngleAddr, servoMinAngleAddr, servoOpenDelayAddr, servoCloseDelayAddr, wifiSsidAddr, wifiPasswordAddr, enableServoAddr, enableBuzzerAddr, enableLedAddr, enablePotAddr, enableButtonAddr, enableTiltSensorAddr };
 String waktusBaru[24];
 int katupsBaru[24];
 
@@ -1042,38 +1035,134 @@ void wait(unsigned long time) {
   }
 }
 
-struct WifiAp {
-  void begin() {
-    if (!apIsActive) {
-      Serial.println("turning on AP mode");
-      WiFi.softAP(APSsid, APPassword);
-      apIsActive = true;
+class EepromManager {
+  public:
+    // read = 0
+    // write = 1
+    void printInfo(const byte mode, const unsigned int address, const unsigned int intValue, const String strValue) {
+      if (mode == 0) {
+        Serial.print("Membaca EEPROM [");
+      } else if (mode == 1) {
+        Serial.print("Menulis EEPROM [");
+      }
+      Serial.print(address);
+      Serial.print("] = ");
+      if (strValue != defaultStr) {
+        Serial.println(strValue);
+      } else {
+        Serial.println(intValue);
+      }
+    }
 
-      Serial.print("AP status: ");
-      Serial.println(apIsActive);
-      Serial.print("SSID: ");
-      Serial.println(APSsid);
-      Serial.print("password: ");
-      Serial.println(APPassword);
-      Serial.print("AP IP: ");
-      Serial.println(WiFi.softAPIP());
+    // menulis byte
+    void writeByte(const byte address, const byte value) {
+      EEPROM.write(address, value);
+      EEPROM.commit();
+      printInfo(1, address, value, defaultStr);
+    }
 
+    // mebaca byte
+    byte readByte(const unsigned int address) {
+      unsigned int value = EEPROM.read(address);
+      printInfo(0, address, value, defaultStr);
+      return value;
     }
-  }
-  void end() {
-    if (apIsActive) {
-      Serial.println("turning off AP mode");
-      WiFi.softAPdisconnect(true);
-      apIsActive = false;
+
+    // menulis data
+    void putData(const unsigned int address, const int value) {
+      EEPROM.put(address, value);
+      EEPROM.commit();
+      printInfo(1, address, value, defaultStr);
     }
-  }
-  bool hasConnectedDevice() {
-    if (WiFi.softAPgetStationNum() > 0) {
-      return true;
-    } else {
-      return false;
+
+    // membaca data
+    int getData(const unsigned int address, const bool enablePrintInfo) {
+      unsigned int storedValue;
+      EEPROM.get(address, storedValue);
+      if (enablePrintInfo) printInfo(0, address, storedValue, defaultStr);
+      return storedValue;
     }
-  }
+
+    // menulis string
+    void writeString(const unsigned int address, const String value) {
+      int len = value.length();
+      if (len > maxLength) len = maxLength;
+      for (int i = 0; i < len; i++) {
+        EEPROM.put(address + i, value[i]);
+      }
+      EEPROM.write(address + len, 0);
+      EEPROM.commit();
+    }
+
+    // membaca string
+    String readString(const unsigned int address, const bool enablePrintInfo) {
+      int i;
+      for (i = 0; i < maxLength; i++) {
+        buffer[i] = EEPROM.read(address + i);
+        if (buffer[i] == 0) break;
+      }
+      buffer[i] = '\0';
+      String value = String(buffer);
+      if (enablePrintInfo) printInfo(0, address, 0, String(buffer));
+      return String(buffer);
+    }
+
+    String getAll(const bool enablePrintInfo) {
+      int eepAddArrSize = sizeof(eepromAddress) / sizeof(eepromAddress[0]);
+      String result = defaultStr;
+      String eepReadvalue;
+      for (int i = 0; i < eepAddArrSize; i++) {
+        if (eepromAddress[i] != wifiSsidAddr && eepromAddress[i] != wifiPasswordAddr) {
+          eepReadvalue = String(getData(eepromAddress[i], false) );
+        } else {
+          eepReadvalue = readString(eepromAddress[i], false);
+        }
+
+        if (enablePrintInfo)
+        result += "Membaca EEPROM [";
+        result += String(eepromAddress[i]);
+        result += "] = ";
+        result += eepReadvalue;
+        result += "\n";
+      }
+      return result;
+    }
+};
+EepromManager eepromManager;
+
+class WifiAp {
+  public:
+    void begin() {
+      if (!apIsActive) {
+        Serial.println("turning on AP mode");
+        WiFi.softAP(APSsid, APPassword);
+        apIsActive = true;
+
+        Serial.print("AP status: ");
+        Serial.println(apIsActive);
+        Serial.print("SSID: ");
+        Serial.println(APSsid);
+        Serial.print("password: ");
+        Serial.println(APPassword);
+        Serial.print("AP IP: ");
+        Serial.println(WiFi.softAPIP());
+
+      }
+    }
+    void end() {
+      if (apIsActive) {
+        Serial.println("turning off AP mode");
+        WiFi.softAPdisconnect(true);
+        apIsActive = false;
+      }
+    }
+    bool hasConnectedDevice() {
+      if (WiFi.softAPgetStationNum() > 0) {
+        return true;
+      } else {
+        return false;
+      }
+    }
 };
 WifiAp wifiAp;
 
@@ -1081,190 +1170,189 @@ bool webserverHasStarted = false;
 bool webserverEndRequest = false;
 // webserver handler
 // HTTP example: http://192.168.4.1/ESP?command=<feedo.feeding.2>
-struct WebServer {
-  // true = memulai webserver, menayalakn ap mode, memulai akan otomastis hanya sekali dipanggil
-  // false = menghentikan webserver, menonaktifkan ap mode, menghentikan akan otomastis hanya sekali dipanggil
-  void begin() {
-    static bool webServerHasStoped = true;
+class WebServer {
+  public:
+    // true = memulai webserver, menayalakn ap mode, memulai akan otomastis hanya sekali dipanggil
+    // false = menghentikan webserver, menonaktifkan ap mode, menghentikan akan otomastis hanya sekali dipanggil
+    void begin() {
+      static bool webServerHasStoped = true;
 
-    if (!webserverHasStarted) {
-      webserverEndRequest = webServerHasStoped = false;
-      webServerIsActive = true;
-      wifiAp.begin();
-      server.on("/", handleRoot);
-      server.on("/action_page", handleForm);
+      if (!webserverHasStarted) {
+        webserverEndRequest = webServerHasStoped = false;
+        webServerIsActive = true;
+        wifiAp.begin();
+        server.on("/", handleRoot);
+        server.on("/action_page", handleForm);
 
-      server.on("/pesan", []() {
-        if (server.hasArg("command")) {
-          String messages = server.arg("isi");
-          Serial.println("Pesan diterima: " + messages);
-          server.send(200, "text/plain", "Pesan diterima: " + messages);
-        } else {
-          server.send(400, "text/plain", "Parameter 'isi' tidak ditemukan");
-        }
-      });
-      server.begin();
-      webserverHasStarted = true;
-    }
-  }
-
-  void handle() {
-    if (webServerIsActive) server.handleClient();
-    if (isWifiConnect && webServerIsActive) {
-      static unsigned long apStartTime = 0;
-      static bool apTimerStarted = false;
-      if (wifiAp.getStationNum() > 0) {
-        apTimerStarted = true;
-        apStartTime = millis();
-      } else {
-        if (apTimerStarted && millis() - apStartTime >= 180000) {
-          Serial.println("No AP clients for 3 minutes, disabling AP and webserver...");
-          end();
-          apTimerStarted = false;
-          apStartTime = millis();
-        }
+        server.on("/pesan", []() {
+          if (server.hasArg("command")) {
+            String messages = server.arg("isi");
+            Serial.println("Pesan diterima: " + messages);
+            server.send(200, "text/plain", "Pesan diterima: " + messages);
+          } else {
+            server.send(400, "text/plain", "Parameter 'isi' tidak ditemukan");
+          }
+        });
+        server.begin();
+        webserverHasStarted = true;
       }
     }
-    if (webserverEndRequest) end();
-  }
 
-  void end() {
-    webserverEndRequest = true;
-    if (webserverEndRequest && isWifiConnect && WiFi.softAPgetStationNum() <= 0) {
-      end();
-      webserverEndRequest = false;
+    void handle() {
+      if (webServerIsActive) server.handleClient();
+      if (isWifiConnect && webServerIsActive) {
+        static unsigned long apStartTime = 0;
+        static bool apTimerStarted = false;
+        if (wifiAp.hasConnectedDevice()) {
+          apTimerStarted = true;
+          apStartTime = millis();
+        } else {
+          if (apTimerStarted && millis() - apStartTime >= 180000) {
+            Serial.println("No AP clients for 3 minutes, disabling AP and webserver...");
+            end();
+            apTimerStarted = false;
+            apStartTime = millis();
+          }
+        }
+      }
+      if (webserverEndRequest) end();
     }
-    if (webServerIsActive) {
-      webserverHasStarted = apIsActive = webServerIsActive = false;
-      server.stop();
-      wifiAp.end();
-      Serial.println("Webserver stopped");
+
+    void end() {
+      webserverEndRequest = true;
+      if (webserverEndRequest && isWifiConnect && !wifiAp.hasConnectedDevice() && webServerIsActive) {
+        webserverEndRequest = webserverHasStarted = apIsActive = webServerIsActive = false;
+        server.stop();
+        wifiAp.end();
+        Serial.println("Webserver stopped");
+      }
+
     }
-  }
 
-  static void handleForm() {
-    String newWifiSsid_debug = server.arg("lastname");
-    String newWifiPassword_debug = server.arg("password");
-    String command_debug = server.arg("commandInput");
-    bool reconnectNewWifi_debug = server.hasArg("disconnect");
-    Serial.println("New Wi-Fi SSID: " + newWifiSsid_debug);
-    Serial.println("New Wi-Fi Password: " + newWifiPassword_debug);
-    Serial.println("Command: " + command_debug);
-    Serial.println("Reconnect to new Wi-Fi: " + String(reconnectNewWifi_debug ? trueVal : falseVal));
-  }
+    static void handleForm() {
+      String newWifiSsid_debug = server.arg("lastname");
+      String newWifiPassword_debug = server.arg("password");
+      String command_debug = server.arg("commandInput");
+      bool reconnectNewWifi_debug = server.hasArg("disconnect");
+      Serial.println("New Wi-Fi SSID: " + newWifiSsid_debug);
+      Serial.println("New Wi-Fi Password: " + newWifiPassword_debug);
+      Serial.println("Command: " + command_debug);
+      Serial.println("Reconnect to new Wi-Fi: " + String(reconnectNewWifi_debug ? trueVal : falseVal));
+    }
 
-  static void handleRoot() {
-    String s = main_page;
-    server.send(200, "text/html", s);
-  }
-
+    static void handleRoot() {
+      String s = main_page;
+      server.send(200, "text/html", s);
+    }
 
 };
+WebServer webserver;
 // wifi handler
-struct WifiHandler {
+class WifiHandler {
 
-  // mulai koneksi dengan begin()
-  void startConnect() {
-    static bool handlerWifiStatus = false;
-    static bool wifiHasSetToApSta = false;
-    unsigned long handleTimeout = millis();
-    if (!wifiHasSetToApSta) {
-      WiFi.mode(WIFI_AP_STA);
-      wifiHasSetToApSta = true;
-    }
-    WiFi.hostname(wifiHostName);
-    if (wifiHasChanged) {
-      WiFi.begin(newWifiSsid, newWifiPassword);
-    } else {
-      WiFi.begin(wifiSsid, wifiPassword);
-    }
-    OOOOOOOOOO_codeMarker(19);
-
-    while (WiFi.status() != WL_CONNECTED && millis() - handleTimeout < 15000) {
-      OOOOOOOOOO_codeMarker(14);
-      Serial.print(".");
-      delay(200);
-    }
-    OOOOOOOOOO_codeMarker(15);
-    Serial.println(" ");
-    autoCheck();
-
-  }
-
-  // auto check connect ulang jika wifi terputus
-  void autoCheck() {
-    static bool onceWifiStatusTask = true;
-
-    if (WiFi.status() == WL_CONNECTED) { // koneksi berhasil
-      isWifiConnect = true;
-      webServerIsActive = false;
-      OOOOOOOOOO_codeMarker(16);
-      if (onceWifiStatusTask) {
-        digitalWrite(LED_BUILTIN, LOW);
-        delay(200);
-        digitalWrite(LED_BUILTIN, HIGH);
-        printInfo(1);
-        onceWifiStatusTask = false;
+  public:
+    // mulai koneksi dengan begin()
+    void startConnect() {
+      static bool handlerWifiStatus = false;
+      static bool wifiHasSetToApSta = false;
+      unsigned long handleTimeout = millis();
+      if (!wifiHasSetToApSta) {
+        WiFi.mode(WIFI_AP_STA);
+        wifiHasSetToApSta = true;
       }
+      WiFi.hostname(wifiHostName);
       if (wifiHasChanged) {
-        saveStringToEEPROM(ssidAddress, newWifiSsid);
-        saveStringToEEPROM(passwordAddress, newWifiPassword);
-        wifiSsid = newWifiSsid;
-        wifiPassword = newWifiPassword;
-        newWifiSsid = defaultStr;
-        newWifiPassword = defaultStr;
-        Firebase.RTDB.setString(&fbdo, "/command/output", "New wifi connected");
-        wifiHasChanged = false;
+        WiFi.begin(newWifiSsid, newWifiPassword);
+      } else {
+        WiFi.begin(wifiSsid, wifiPassword);
       }
+      OOOOOOOOOO_codeMarker(19);
 
-    } else { //---------------------------- koneksi gagal
-      OOOOOOOOOO_codeMarker(17);
-      isWifiConnect = false;
-      onceWifiStatusTask = true;
-      webServerIsActive = true;
-      static unsigned long lastReconnect = 0;
-      if (!otaIsActive && millis() - lastReconnect > 60000 && WiFi.status() != WL_CONNECTED) {
-        if (!wifiAp.hasConnectedDevice()) {
-          OOOOOOOOOO_codeMarker(18);
-          Serial.println("Trying to reconnect to Wi-Fi...");
-          lastReconnect = millis();
-          startConnect();
-        } else {
-          Serial.println("Cannot attempt reconnect, there is a device connected in AP mode");
-          lastReconnect = millis();
+      while (WiFi.status() != WL_CONNECTED && millis() - handleTimeout < 15000) {
+        OOOOOOOOOO_codeMarker(14);
+        Serial.print(".");
+        delay(200);
+      }
+      OOOOOOOOOO_codeMarker(15);
+      Serial.println(" ");
+      autoCheck();
+
+    }
+
+    // auto check connect ulang jika wifi terputus
+    void autoCheck() {
+      static bool onceWifiStatusTask = true;
+
+      if (WiFi.status() == WL_CONNECTED) { // koneksi berhasil
+        isWifiConnect = true;
+        webserver.end();
+        OOOOOOOOOO_codeMarker(16);
+        if (onceWifiStatusTask) {
+          digitalWrite(LED_BUILTIN, LOW);
+          delay(200);
+          digitalWrite(LED_BUILTIN, HIGH);
+          printInfo(1);
+          onceWifiStatusTask = false;
+        }
+        if (wifiHasChanged) {
+          eepromManager.writeString(wifiSsidAddr, newWifiSsid);
+          eepromManager.writeString(wifiPasswordAddr, newWifiPassword);
+          wifiSsid = newWifiSsid;
+          wifiPassword = newWifiPassword;
+          newWifiSsid = defaultStr;
+          newWifiPassword = defaultStr;
+          Firebase.RTDB.setString(&fbdo, "/command/output", "New wifi connected");
+          wifiHasChanged = false;
         }
 
+      } else { //---------------------------- koneksi gagal
+        OOOOOOOOOO_codeMarker(17);
+        isWifiConnect = false;
+        onceWifiStatusTask = true;
+        webserver.begin();
+        static unsigned long lastReconnect = 0;
+        if (!otaIsActive && millis() - lastReconnect > 60000 && WiFi.status() != WL_CONNECTED) {
+          if (!wifiAp.hasConnectedDevice()) {
+            OOOOOOOOOO_codeMarker(18);
+            Serial.println("Trying to reconnect to Wi-Fi...");
+            lastReconnect = millis();
+            startConnect();
+          } else {
+            Serial.println("Cannot attempt reconnect, there is a device connected in AP mode");
+            lastReconnect = millis();
+          }
+
+        }
+        if (wifiHasChanged) {
+          Firebase.RTDB.setString(&fbdo, "/command/output", "failed to connect to new WiFi");
+        }
       }
-      if (wifiHasChanged) {
-        Firebase.RTDB.setString(&fbdo, "/command/output", "failed to connect to new WiFi");
+    }
+    // AP STA mode = 0
+    // STA mode = 1
+    // AP mode = 2
+    void printInfo(const byte mode) {
+      if (mode == 1 || mode == 0) {
+        Serial.print("wifi status: ");
+        Serial.println(isWifiConnect);
+        Serial.print("SSID: ");
+        Serial.println(wifiSsid);
+        Serial.print("password: ");
+        Serial.println(wifiPassword);
+        Serial.print("wifi IP: ");
+        Serial.println(WiFi.localIP());
+      }
+      if (mode == 2 || mode == 0) {
+        Serial.print("AP status: ");
+        Serial.println(apIsActive);
+        Serial.print("SSID: ");
+        Serial.println(APSsid);
+        Serial.print("password: ");
+        Serial.println(APPassword);
+        Serial.print("AP IP: ");
+        Serial.println(WiFi.softAPIP());
       }
     }
-  }
-  // AP STA mode = 0
-  // STA mode = 1
-  // AP mode = 2
-  void printInfo(const byte mode) {
-    if (mode == 1 || mode == 0) {
-      Serial.print("wifi status: ");
-      Serial.println(isWifiConnect);
-      Serial.print("SSID: ");
-      Serial.println(wifiSsid);
-      Serial.print("password: ");
-      Serial.println(wifiPassword);
-      Serial.print("wifi IP: ");
-      Serial.println(WiFi.localIP());
-    }
-    if (mode == 2 || mode == 0) {
-      Serial.print("AP status: ");
-      Serial.println(apIsActive);
-      Serial.print("SSID: ");
-      Serial.println(APSsid);
-      Serial.print("password: ");
-      Serial.println(APPassword);
-      Serial.print("AP IP: ");
-      Serial.println(WiFi.softAPIP());
-    }
-  }
 
 };
 WifiHandler wifiHandler;
@@ -1501,212 +1589,215 @@ void lastFood(String source, int value, String currentTime) {
   }*/
 }
 
-void saveStringToEEPROM(int addr, String data) {
-  int len = data.length();
-  if (len > maxLength) len = maxLength;
-  for (int i = 0; i < len; i++) {
-    EEPROM.put(addr + i, data[i]);
-  }
-  EEPROM.write(addr + len, 0);
-  EEPROM.commit();
-}
+// void saveStringToEEPROM(int addr, String data) {
+//   int len = data.length();
+//   if (len > maxLength) len = maxLength;
+//   for (int i = 0; i < len; i++) {
+//     EEPROM.put(addr + i, data[i]);
+//   }
+//   EEPROM.write(addr + len, 0);
+//   EEPROM.commit();
+// }
 
 // mendapatkan semua data EEPROM
-String getAllEeprom() {
+// String getAllEeprom() {
 
-  int eepAddArrSize = sizeof(eepromAddress) / sizeof(eepromAddress[0]);
-  String result = defaultStr;
-  String eepReadvalue;
-  int storedValue;
-  for (int i = 0; i < eepAddArrSize; i++) {
-    if (eepromAddress[i] != ssidAddress && eepromAddress[i] != passwordAddress) {
-      eepReadvalue = String(accessEEPROM(eepromAddress[i], -1));
-    } else {
-      eepReadvalue = readStringFromEEPROM(eepromAddress[i]);
+//   int eepAddArrSize = sizeof(eepromAddress) / sizeof(eepromAddress[0]);
+//   String result = defaultStr;
+//   String eepReadvalue;
+//   int storedValue;
+//   for (int i = 0; i < eepAddArrSize; i++) {
+//     if (eepromAddress[i] != wifiSsidAddr && eepromAddress[i] != wifiPasswordAddr) {
+//       eepReadvalue = String(accessEEPROM(eepromAddress[i], -1));
+//     } else {
+//       eepReadvalue = readStringFromEEPROM(eepromAddress[i]);
+//     }
+
+//     result += "Membaca EEPROM [";
+//     result += String(eepromAddress[i]);
+//     result += "] = ";
+//     result += eepReadvalue;
+//     result += "\n";
+//   }
+//   return result;
+// }
+
+
+// handle OTA
+class OtaHandler {
+  private:
+    unsigned long lastBlink = 0;
+    bool ledState = false;
+    bool otaHasEnded = true;
+    bool otaInitialized = false;
+
+  public:
+
+    // auto handle saat dinyalakan atau dimatikan
+    void autoHandle() {
+      if (!otaIsActive) {
+        return;
+      }
+      ArduinoOTA.handle();
+      if (millis() - lastBlink >= 500) {
+        ledState = !ledState;
+        digitalWrite(LED_BUILTIN, ledState ? HIGH : LOW);
+        lastBlink = millis();
+      }
+
     }
 
-    result += "Membaca EEPROM [";
-    result += String(eepromAddress[i]);
-    result += "] = ";
-    result += eepReadvalue;
-    result += "\n";
-  }
-  return result;
-}
+    // start: mulai ota
+    void start() {
+      if (!otaInitialized) {
+        otaHasEnded = false;
+        wifiAp.begin();
+        ArduinoOTA.onStart([]() {
+          String type;
+          if (ArduinoOTA.getCommand() == U_FLASH) {
+            type = "sketch";
+          } else {
+            type = "filesystem";
+          }
+          Serial.println("Start updating " + type);
+        });
+        ArduinoOTA.onEnd([]() {
+          Serial.println("\nEnd");
+        });
+        ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+          Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
+        });
+        ArduinoOTA.onError([](ota_error_t error) {
+          Serial.printf("Error[%u]: ", error);
+          if (error == OTA_AUTH_ERROR) {
+            Serial.println("Auth Failed");
+          } else if (error == OTA_BEGIN_ERROR) {
+            Serial.println("Begin Failed");
+          } else if (error == OTA_CONNECT_ERROR) {
+            Serial.println("Connect Failed");
+          } else if (error == OTA_RECEIVE_ERROR) {
+            Serial.println("Receive Failed");
+          } else if (error == OTA_END_ERROR) {
+            Serial.println("End Failed");
+          }
+        });
+        ArduinoOTA.begin();
+        Serial.println("OTA is ready");
+        Serial.println(WiFi.softAPIP());
+        otaIsActive = otaInitialized = true;
+        OOOOOOOOOO_codeMarker(2);
+      }
 
-bool otaHasEnded = true;
-bool otaInitialized = false;
-bool ledState = false;
-unsigned long lastBlink = 0;
-// function handle OTA
-
-struct OtaHandler {
-
-  // auto handle saat dinyalakan atau dimatikan
-  void autoHandle() {
-    if (!otaIsActive) {
-      return;
     }
-    ArduinoOTA.handle();
-    if (millis() - lastBlink >= 500) {
-      ledState = !ledState;
-      digitalWrite(LED_BUILTIN, ledState ? HIGH : LOW);
-      lastBlink = millis();
-    }
 
-  }
-
-  // start: mulai ota
-  void start() {
-    if (!otaInitialized) {
-      otaHasEnded = false;
-      wifiAp.begin();
-      ArduinoOTA.onStart([]() {
-        String type;
-        if (ArduinoOTA.getCommand() == U_FLASH) {
-          type = "sketch";
-        } else {
-          type = "filesystem";
+    // end: hentikan ota
+    void end() {
+      Serial.println("ending OTA");
+      otaIsActive = otaInitialized = false;
+      if (!otaHasEnded) {
+        digitalWrite(LED_BUILTIN, HIGH);
+        ArduinoOTA.end();
+        if (!webServerIsActive) {
+          wifiAp.end();
+          otaHasEnded = true;
         }
-        Serial.println("Start updating " + type);
-      });
-      ArduinoOTA.onEnd([]() {
-        Serial.println("\nEnd");
-      });
-      ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
-        Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
-      });
-      ArduinoOTA.onError([](ota_error_t error) {
-        Serial.printf("Error[%u]: ", error);
-        if (error == OTA_AUTH_ERROR) {
-          Serial.println("Auth Failed");
-        } else if (error == OTA_BEGIN_ERROR) {
-          Serial.println("Begin Failed");
-        } else if (error == OTA_CONNECT_ERROR) {
-          Serial.println("Connect Failed");
-        } else if (error == OTA_RECEIVE_ERROR) {
-          Serial.println("Receive Failed");
-        } else if (error == OTA_END_ERROR) {
-          Serial.println("End Failed");
-        }
-      });
-      ArduinoOTA.begin();
-      Serial.println("OTA is ready");
-      Serial.println(WiFi.softAPIP());
-      otaIsActive = otaInitialized = true;
-      OOOOOOOOOO_codeMarker(2);
-    }
-
-  }
-
-  // end: hentikan ota
-  void end() {
-    Serial.println("ending OTA");
-    otaIsActive = otaInitialized = false;
-    if (!otaHasEnded) {
-      digitalWrite(LED_BUILTIN, HIGH);
-      ArduinoOTA.end();
-      if (!webServerIsActive) {
-        wifiAp.end();
-        otaHasEnded = true;
       }
     }
-  }
 
 
 };
 OtaHandler otaHandler;
 
-struct TimeClientHandler {
-
-  bool start() {
-    timeClient.begin();
-    timeClient.setTimeOffset(25200);  // Offset untuk Waktu Indonesia Barat (WIB)
-    return true;
-  }
-
-  String currentTime() {
-    timeClient.update();
-    return timeClient.getFormattedTime().substring(0, 5);
-  }
-
-  String monthDay() {
-    timeClient.update();
-    time_t epochTime = timeClient.getEpochTime();
-    struct tm* ptm = gmtime((time_t*)&epochTime);
-    byte monthDay = ptm->tm_mday;
-    if (monthDay < 10) {
-      monthDayStr = "0" + String(monthDay);
-    } else {
-      monthDayStr = String(monthDay);
+class TimeClientHandler {
+  public:
+    bool start() {
+      timeClient.begin();
+      timeClient.setTimeOffset(25200);  // Offset untuk Waktu Indonesia Barat (WIB)
+      return true;
     }
-    return monthDayStr;
-  }
 
-  String currentMonth() {
-    timeClient.update();
-    time_t epochTime = timeClient.getEpochTime();
-    struct tm* ptm = gmtime((time_t*)&epochTime);
-    byte currentMonth = ptm->tm_mon + 1;
-    if (currentMonth < 10) {
-      currentMonthStr = "0" + String(currentMonth);
-    } else {
-      currentMonthStr = String(currentMonth);
+    String currentTime() {
+      timeClient.update();
+      return timeClient.getFormattedTime().substring(0, 5);
     }
-    return currentMonthStr;
-  }
 
-  String currentYear() {
-    timeClient.update();
-    time_t epochTime = timeClient.getEpochTime();
-    struct tm* ptm = gmtime((time_t*)&epochTime);
-    int currentYear = ptm->tm_year + 1900;
-    return String(currentYear);
-  }
+    String monthDay() {
+      timeClient.update();
+      time_t epochTime = timeClient.getEpochTime();
+      struct tm* ptm = gmtime((time_t*)&epochTime);
+      byte monthDay = ptm->tm_mday;
+      if (monthDay < 10) {
+        monthDayStr = "0" + String(monthDay);
+      } else {
+        monthDayStr = String(monthDay);
+      }
+      return monthDayStr;
+    }
 
-  String completeTime() {
-    return String(currentYear()) + "-" + currentMonth() + "-" + monthDay() + " " + timeClient.getFormattedTime();
-  }
+    String currentMonth() {
+      timeClient.update();
+      time_t epochTime = timeClient.getEpochTime();
+      struct tm* ptm = gmtime((time_t*)&epochTime);
+      byte currentMonth = ptm->tm_mon + 1;
+      if (currentMonth < 10) {
+        currentMonthStr = "0" + String(currentMonth);
+      } else {
+        currentMonthStr = String(currentMonth);
+      }
+      return currentMonthStr;
+    }
+
+    String currentYear() {
+      timeClient.update();
+      time_t epochTime = timeClient.getEpochTime();
+      struct tm* ptm = gmtime((time_t*)&epochTime);
+      int currentYear = ptm->tm_year + 1900;
+      return String(currentYear);
+    }
+
+    String completeTime() {
+      return String(currentYear()) + "-" + currentMonth() + "-" + monthDay() + " " + timeClient.getFormattedTime();
+    }
 };
 TimeClientHandler timeClientHandler;
 
-struct CommandHandler {
+class CommandHandler {
+  public:
+    // Contoh command: led.builtin on 1000
+    void parse(String input) {
+      input.trim();  // Buang spasi depan-belakang
+      params.clear();
 
-  // Contoh command: led.builtin on 1000
-  void parse(String input) {
-    input.trim();  // Buang spasi depan-belakang
-    params.clear();
+      // ambil target.command
+      int spaceIdx = input.indexOf(' ');
+      String head = input.substring(0, spaceIdx);
+      String rest = input.substring(spaceIdx + 1);
 
-    // ambil target.command
-    int spaceIdx = input.indexOf(' ');
-    String head = input.substring(0, spaceIdx);
-    String rest = input.substring(spaceIdx + 1);
+      int dotIdx = head.indexOf('.');
+      target = head.substring(0, dotIdx);
+      command = head.substring(dotIdx + 1);
 
-    int dotIdx = head.indexOf('.');
-    target = head.substring(0, dotIdx);
-    command = head.substring(dotIdx + 1);
-
-    // buat parameter
-    int start = 0;
-    while (true) {
-      int sp = rest.indexOf(' ', start);
-      if (sp == -1) {
-        String param = rest.substring(start);
-        if (param.length()) params.push_back(param);
-        break;
+      // buat parameter
+      int start = 0;
+      while (true) {
+        int sp = rest.indexOf(' ', start);
+        if (sp == -1) {
+          String param = rest.substring(start);
+          if (param.length()) params.push_back(param);
+          break;
+        }
+        params.push_back(rest.substring(start, sp));
+        start = sp + 1;
       }
-      params.push_back(rest.substring(start, sp));
-      start = sp + 1;
     }
-  }
 
-  void output(const String oCommand) {
-    if (oCommand != "~") {
-      if (commandSource == 1) Serial.println("command output: " + oCommand);
-      if (commandSource == 2) (firebaseHandler.setString("/command/output", oCommand));
-      commandSource = 0;
+    void output(const String oCommand) {
+      if (oCommand != "~") {
+        if (commandSource == 1) Serial.println("command output: " + oCommand);
+        if (commandSource == 2) (firebaseHandler.setString("/command/output", oCommand));
+        commandSource = 0;
+      }
     }
-  }
 
   // target.command  param1 param2 p...
   bool execute(String INF_execute_rawCommand) {
@@ -1775,7 +1866,7 @@ struct CommandHandler {
       if (command == "setMinAngle") {
         if (params[0].toInt() <= 180) {
           servoMaxAngle = params[0].toInt();
-          accessEEPROM(servoMAAddress, params[0].toInt());
+          eepromManager.putData(servoMaxAngleAddr, params[0].toInt());
           output("servo set max angle");
         } else {
           output("error: angle too large");
@@ -1783,7 +1874,7 @@ struct CommandHandler {
       } else if (command == "setOpenDelay") {
         if (params[0].toInt() <= 10000) {
           servoOpenDelay = params[0].toInt();
-          accessEEPROM(servoODAddress, servoOpenDelay);
+          eepromManager.putData(servoOpenDelayAddr, servoOpenDelay);
           output("servo set open delay");
         } else {
           output("error: delay too long");
@@ -1791,7 +1882,7 @@ struct CommandHandler {
       } else if (command == "setCloseDelay") {
         if (params[0].toInt() >= 80) {
           servoCloseDelay = params[0].toInt();
-          accessEEPROM(servoCDAddress, params[0].toInt());
+          eepromManager.putData(servoCloseDelayAddr, servoCloseDelay);
           output("servo set close delay");
         } else {
           output("error: delay too fast");
@@ -1805,10 +1896,10 @@ struct CommandHandler {
       } else if (command == enable) {
         bool enableServo2 = true;
         if (params[0] == trueVal) {
-          accessEEPROM(enableServoAddr, 1);
+          eepromManager.putData(enableServoAddr, 1);
           enableServo = true;
         } else if (params[0] == trueVal) {
-          accessEEPROM(enableServoAddr, 0);
+          eepromManager.putData(enableServoAddr, 0);
           enableServo = false;
         } else {
           output("error: wrong value");
@@ -1828,10 +1919,10 @@ struct CommandHandler {
       } else if (command == enable) {
         bool enableBuzzer2 = true;
         if (params[0] == trueVal) {
-          accessEEPROM(enableBuzzerAddr, 1);
+          eepromManager.putData(enableBuzzerAddr, 1);
           enableBuzzer = true;
         } else if (params[0] == falseVal) {
-          accessEEPROM(enableBuzzerAddr, 0);
+          eepromManager.putData(enableBuzzerAddr, 0);
           enableBuzzer = false;
         } else {
           output("error: wrong value");
@@ -1865,27 +1956,27 @@ struct CommandHandler {
     } else if (target == "eeprom") {  // Eeprom
       if (command == "get") {
         int intValues = params[0].toInt();
-        if (intValues != ssidAddress && intValues != passwordAddress) {
-          output(String(accessEEPROM(params[0].toInt(), -1)));
+        if (intValues != wifiSsidAddr && intValues != wifiPasswordAddr) {
+          output(String(eepromManager.getData(params[0].toInt(), false)));
         } else {
-          output(readStringFromEEPROM(params[0].toInt()));
+          output(eepromManager.readString(params[0].toInt(), false));
         }
       } else if (command == "getAll") {
-        String getAllResult = getAllEeprom();
+        String getAllResult = eepromManager.getAll(true);
         getAllResult.replace("\n", "\\n");
         Serial.println(getAllResult);
         output(getAllResult);
       } else if (command == "writeString") {
-        if (params[0].toInt() == ssidAddress || params[0].toInt() == passwordAddress && params[1].length() <= 30) {
-          saveStringToEEPROM(params[0].toInt(), params[1]);
+        if (params[0].toInt() == wifiSsidAddr || params[0].toInt() == wifiPasswordAddr && params[1].length() <= 30) {
+          eepromManager.writeString(params[0].toInt(), params[1]);
           output("string data is saved");
         } else {
           output("error: destination address saves integer");
         }
       } else if (command == "writeInterger") {
-        if (params[0].toInt() != ssidAddress && params[0].toInt() != passwordAddress) {
+        if (params[0].toInt() != wifiSsidAddr && params[0].toInt() != wifiPasswordAddr) {
           if (params[1].toInt() <= 99999) {
-            accessEEPROM(params[0].toInt(), params[1].toInt());
+            eepromManager.putData(params[0].toInt(), params[1].toInt());
             output("interger data is saved");
           } else {
             output("error: number greater than 99999");
@@ -1915,10 +2006,10 @@ struct CommandHandler {
       } else if (target == "led.enable") {
         bool enableLed2 = true;
         if (params[0] == trueVal) {
-          accessEEPROM(enableLedAddr, 1);
+          eepromManager.putData(enableLedAddr, 1);
           enableLed = true;
         } else if (params[0] == falseVal) {
-          accessEEPROM(enableLedAddr, 0);
+          eepromManager.putData(enableLedAddr, 0);
           enableLed = false;
         } else {
           output("error: wrong value");
@@ -1932,10 +2023,10 @@ struct CommandHandler {
       if (command == enable) {
         bool enablePot2 = true;
         if (params[0] == trueVal) {
-          accessEEPROM(enablePotAddr, 1);
+          eepromManager.putData(enablePotAddr, 1);
           enablePot = true;
         } else if (params[0] == falseVal) {
-          accessEEPROM(enablePotAddr, 0);
+          eepromManager.putData(enablePotAddr, 0);
           enablePot = false;
         } else {
           output("error: wrong value");
@@ -1949,10 +2040,10 @@ struct CommandHandler {
       if (command == "button.enable") {  // enable button
         bool enableButton2 = true;
         if (params[0] == trueVal) {
-          accessEEPROM(enableButtonAddr, 1);
+          eepromManager.putData(enableButtonAddr, 1);
           enableButton = true;
         } else if (params[0] == falseVal) {
-          accessEEPROM(enableButtonAddr, 0);
+          eepromManager.putData(enableButtonAddr, 0);
           enableButton = false;
         } else {
           output("error: wrong value");
@@ -1967,10 +2058,10 @@ struct CommandHandler {
       if (command == enable) {  // enable tilt sensor
         bool enableTiltSensor2 = true;
         if (params[0] == trueVal) {
-          accessEEPROM(enableTiltSensorAddr, 1);
+          eepromManager.putData(enableTiltSensorAddr, 1);
           enableTiltSensor = true;
         } else if (params[0] == falseVal) {
-          accessEEPROM(enableTiltSensorAddr, 0);
+          eepromManager.putData(enableTiltSensorAddr, 0);
           enableTiltSensor = false;
         } else {
           output("error: wrong value");
@@ -2045,82 +2136,6 @@ struct CommandHandler {
 };
 CommandHandler commandHandler;
 
-class EepromManager {
-  public:
-    // read = 0
-    // write = 1
-    void printInfo(const byte mode, const unsigned int address, const unsigned int intValue, const String strValue) {
-      if (mode == 0) {
-        Serial.print("Membaca EEPROM [");
-      } else if (mode == 1) {
-        Serial.print("Menulis EEPROM [");
-      }
-      Serial.print(address);
-      Serial.print("] = ");
-      if (strValue != defaultStr) {
-        Serial.println(strValue);
-      } else {
-        Serial.println(intValue);
-      }
-    }
-
-    // menulis byte
-    void writeByte(const byte address, const byte value) {
-      EEPROM.write(address, value);
-      EEPROM.commit();
-      printInfo(1, address, value, defaultStr);
-    }
-
-    // mebaca byte
-    byte readByte(const unsigned int address) {
-      unsigned int value = EEPROM.read(address);
-      printInfo(0, address, value, defaultStr);
-      return value;
-    }
-
-    // menulis integer
-    void writeInt(const unsigned int address, const int value) {
-      EEPROM.put(address, value);
-      EEPROM.commit();
-      printInfo(1, address, value, defaultStr);
-    }
-
-    // membaca integer
-    int readInt(const unsigned int address) {
-      readByte(address);
-    }
-
-    // menulis string
-    void writeString(const unsigned int address, const String value) {
-      int len = value.length();
-      if (len > maxLength) len = maxLength;
-      for (int i = 0; i < len; i++) {
-        EEPROM.put(address + i, value[i]);
-      }
-      EEPROM.write(address + len, 0);
-      EEPROM.commit();
-    }
-
-    // membaca string
-    String readString(const unsigned int address) {
-      int i;
-      for (i = 0; i < maxLength; i++) {
-        buffer[i] = EEPROM.read(address + i);
-        if (buffer[i] == 0) break;
-      }
-      buffer[i] = '\0';
-      Serial.print("Membaca EEPROM [");
-      Serial.print(address);
-      Serial.print("] = ");
-      Serial.println(String(buffer));
-
-      String value = String(buffer);
-      printInfo(0, address, String(buffer));
-      return String(buffer);
-    }
-};
-EepromManager eepromManager;
-
 
 
 // --------------------------------- functions ---------------------------------//
@@ -2157,8 +2172,9 @@ void setup() {
   pinMode(LED_BUILTIN, OUTPUT);
   pinMode(tiltSensorPin, INPUT_PULLUP);
 
-  wifiSsid =
-  wifiPassword =
+  wifiSsid = eepromManager.readString(wifiSsidAddr, true);
+  wifiPassword = eepromManager.readString(wifiPasswordAddr, true);
+  wifiHandler.startConnect();
   timeClientHandler.start();
 
   config.api_key = API_KEY;
@@ -2166,16 +2182,16 @@ void setup() {
 
 
   //servoMaxAngle = accessEEPROM(servoMAAddress, -1);
-  servoMinAngle = eepromManager.readInt(servoMinAngleAddr);
-  servoOpenDelay = eepromManager.readInt(servoOpenDelayAddr);
-  servoCloseDelay = eepromManager.readInt(servoCloseDelayAddr);
+  servoMinAngle = eepromManager.getData(servoMinAngleAddr, true);
+  servoOpenDelay = eepromManager.getData(servoOpenDelayAddr, true);
+  servoCloseDelay = eepromManager.getData(servoCloseDelayAddr, true);
 
-  enableServo = (eepromManager.readByte(enableServoAddr) != 0);
-  enableBuzzer = (eepromManager.readByte(enableBuzzerAddr) != 0);
-  enableLed = (eepromManager.readByte(enableLedAddr) != 0);
-  enablePot = (eepromManager.readByte(enablePotAddr) != 0);
-  enableButton = (eepromManager.readByte(enableButtonAddr) != 0);
-  enableTiltSensor = (eepromManager.readByte(enableTiltSensorAddr) != 0);
+  enableServo = (eepromManager.getData(enableServoAddr, true) != 0);
+  enableBuzzer = (eepromManager.getData(enableBuzzerAddr, true) != 0);
+  enableLed = (eepromManager.getData(enableLedAddr, true) != 0);
+  enablePot = (eepromManager.getData(enablePotAddr, true) != 0);
+  enableButton = (eepromManager.getData(enableButtonAddr, true) != 0);
+  enableTiltSensor = (eepromManager.getData(enableTiltSensorAddr, true) != 0);
 
   if (servoMaxAngle <= 0) {
     servoMaxAngle = 110;
@@ -2194,7 +2210,6 @@ void loop() {
     buzzerStart = false;
   }
 
-  wifiHandler.autoCheck();
   OOOOOOOOOO_codeMarker(20);
 
   // update waktu
@@ -2246,16 +2261,6 @@ void loop() {
     }
   }
 
-  // static unsigned long lastPrintMillis = 0;
-  // if (millis() - lastPrintMillis >= 3000) {
-  //   if (WiFi.getMode() == WIFI_AP || WiFi.getMode() == WIFI_AP_STA) {
-  //     Serial.println("Access Point AKTIF!");
-  //   } else {
-  //     Serial.println("Access Point TIDAK aktif");
-  //   }
-  //   lastPrintMillis = millis();
-  // }
-
   OOOOOOOOOO_codeMarker(6);
 
   // runtime tasks
@@ -2269,8 +2274,6 @@ void loop() {
   if ((fbdConnected = firebaseHandler.start())) fbdConnected = Firebase.ready(); // cek apakah sudah signup firebase
 
   OOOOOOOOOO_codeMarker(7);
-
-
 
   // firebase database
   if (isWifiConnect && fbdConnected) {
@@ -2399,5 +2402,5 @@ void loop() {
   yield();
   systemHasStarted = false;
   OOOOOOOOOO_codeMarker(10);
-
+  wifiHandler.autoCheck();
 }
