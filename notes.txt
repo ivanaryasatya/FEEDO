@@ -97,7 +97,12 @@ check list:
 ! perbaiki penanganan mode AP
 ! firebase belum bisa terhubung dan sinkron
 
-//2025
+27/07/2025
+
++ beberapa command
+- perbaiki function handler wifi dan AP
+- perbaiki letak class dan function
+
 //2025
 //2025
 //2025

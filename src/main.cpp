@@ -18,7 +18,7 @@
   Sketch created by: Ivan Aryasatya
   Webserver IP: http://192.168.4.1/
   Site: https://feedo.fardhan.com/
-  Version: 1.2.3
+  Version: 1.2.4
 
 */
 #include <Arduino.h>
@@ -91,7 +91,7 @@ bool
   fUpdateP1 = true,
   cooldownK = false,
   bCooldown = false,
-  apIsActive = true,
+  apIsActive = false,
   delayP = true,
   firebaseUpdate = true,
   buzzerAct = false,
@@ -111,7 +111,10 @@ bool
   enableTiltSensor = true,
   webServerIsActive = false,
   wifiHasChanged = false,
-  userActivatedWebServer = false;
+  userActivatedWebServer = false,
+  isSerialCommand = false,
+  tiltSensorState = false
+;
 unsigned long
   bCooldownStart = defaultInt,
   sensorDTime = defaultInt,
@@ -124,7 +127,8 @@ unsigned long
   currentPosPrint = defaultInt,
   lastReconnectAttempt = defaultInt,
   startAttemptTime = defaultInt,
-  timeClientUpdateDelay = defaultInt;
+  timeClientUpdateDelay = defaultInt
+;
 String
   mobileLastUp = defaultStr,
   mobileLatestUp = defaultStr,
@@ -311,7 +315,6 @@ static const char main_page[] PROGMEM = R"=====(
 
 // --------------------------------- functions ---------------------------------//
 
-byte commandSource = 0;
 String target;
 String command;
 String rawCommand = "~";
@@ -319,10 +322,201 @@ std::vector<String> params;
 
 // struct command
 const String wrongBoolValue = "error: wrong value, must be true or false";
-const String unknownCommand = "unknown input command, please check your command and try again";
+const String unknownCommand = "unknown command, please check your command and try again";
+const String unknownTarget = "unknown target in command, please check your target and try again";
 const String enable = "enable";
 const String zeroStr = "0";
 const String oneStr = "1";
+
+/* class Message {
+  public:
+    class Info {
+      public:
+
+        // wifi
+        const char* connected = "wifi connected";
+        const char* disconnected = "wifi disconnected";
+        const char* connectionFailed = "wifi connection failed, please check your wifi connection";
+        const char* ssidChanged = "wifi ssid changed, please reconnect to the new wifi";
+        const char* passwordChanged = "wifi password changed, please reconnect to the new wifi";
+
+        // firebase
+        const char* connected = "firebase connected";
+        const char* disconnected = "firebase disconnected";
+        const char* connectionFailed = "firebase connection failed, please check your firebase connection";
+        const char* dataUpdated = "firebase data updated";
+        const char* dataNotUpdated = "firebase data not updated";
+
+
+
+
+        // const char* wifiConnected = "wifi connected";
+        // const char* firebaseConnected = "firebase connected";
+        // const char* webServerStarted = "webserver started";
+        // const char* webServerEnded = "webserver ended";
+        // const char* otaStarted = "ota started";
+        // const char* otaEnded = "ota ended";
+        // const char* commandReceived = "command received";
+        // const char* commandExecuted = "command executed";
+        // const char* commandNotFound = "command not found";
+        // const char* commandError = "command error, please check your command and try again";
+    };
+
+    class Error {
+      public:
+
+      class Wifi {
+        public:
+
+      };
+
+      class Firebase {
+        public:
+
+      };
+
+      class WebServer {
+        public:
+      };
+
+      class OTA {
+        public:
+      };
+
+      class Command {
+        public:
+      };
+        // const char* noWifi = "error: no wifi connection";
+        // const char* noFirebase = "error: firebase not connected";
+        // const char* noWebServer = "error: webserver not running";
+        // const char* noCommand = "error: command not found";
+        // const char* wrongCommand = "error: wrong command, please check your command and try again";
+        // const char* wrongValue = "error: wrong value, please check your value and try again";
+    };
+
+    class Warning {
+      public:
+        class Warning_Wifi {
+          public:
+            const char* excessLetters = ;
+            const char* noConnection = "warning: no wifi connection, please check your wifi connection";
+            const char* noCredentials = "warning: no wifi credentials, please set your wifi credentials";
+            const char* noSsid = "warning: no wifi ssid, please set your wifi ssid";
+            const char* noPassword = "warning: no wifi password, please set your wifi password";
+        };
+
+        class Firebase {
+          public:
+
+        };
+
+        class WebServer {
+          public:
+        };
+
+        class OTA {
+          public:
+        };
+
+        class Command {
+          public:
+        };
+
+      Warning_Wifi wifi;
+      Firebase firebase;
+      WebServer webServer;
+      OTA ota;
+      Command command;
+        // const char* noWifi = "warning: no wifi connection, please check your wifi connection";
+        // const char* noFirebase = "warning: firebase not connected, please check your firebase connection";
+        // const char* noWebServer = "warning: webserver not running, please check your webserver connection";
+        // const char* noCommand = "warning: command not found, please check your command and try again";
+    };
+
+    // class FirebasePaths {
+    //   public:
+    //     const char* mobileLatestUp = "/mobileLatestUp";
+    //     const char* lastStart = "/lastStart";
+    //     const char* loopRate = "/loopRate";
+    // };
+
+    // class command {
+    //   public:
+    //   const char* wifi = "wifi";
+    //   const char* esp = "esp";
+    //   const char* servo = "servo";
+    //   const char* buzzer = "buzzer";
+    //   const char* eeprom = "eeprom";
+    //   const char* led = "led";
+    //   const char* pot = "pot";
+    //   const char* button = "button";
+    //   const char* tiltSensor = "tiltSensor";
+    //   const char* ota = "ota";
+    //   const char* webserver = "webserver";
+    //   const char* serial = "serial";
+    //   const char* feedo = "feedo";
+    // };
+
+    Info info;
+    Error error;
+    Warning warning;
+    FirebasePaths firebasePath;
+};
+Message savesMessages;
+ */
+
+class TimeClientHandler {
+  public:
+    bool start() {
+      timeClient.begin();
+      timeClient.setTimeOffset(25200);  // Offset untuk Waktu Indonesia Barat (WIB)
+      return true;
+    }
+
+    String currentTime() {
+      timeClient.update();
+      return timeClient.getFormattedTime().substring(0, 5);
+    }
+
+    String monthDay() {
+      timeClient.update();
+      time_t epochTime = timeClient.getEpochTime();
+      struct tm* ptm = gmtime((time_t*)&epochTime);
+      byte monthDay = ptm->tm_mday;
+      if (monthDay < 10) {
+        monthDayStr = "0" + String(monthDay);
+      } else {
+        monthDayStr = String(monthDay);
+      }
+      return monthDayStr;
+    }
+
+    String currentMonth() {
+      timeClient.update();
+      time_t epochTime = timeClient.getEpochTime();
+      struct tm* ptm = gmtime((time_t*)&epochTime);
+      byte currentMonth = ptm->tm_mon + 1;
+      if (currentMonth < 10) {
+        currentMonthStr = "0" + String(currentMonth);
+      } else {
+        currentMonthStr = String(currentMonth);
+      }
+      return currentMonthStr;
+    }
+
+    String currentYear() {
+      timeClient.update();
+      time_t epochTime = timeClient.getEpochTime();
+      struct tm* ptm = gmtime((time_t*)&epochTime);
+      int currentYear = ptm->tm_year + 1900;
+      return String(currentYear);
+    }
+
+    String completeTime() {
+      return String(currentYear()) + "-" + currentMonth() + "-" + monthDay() + " " + timeClient.getFormattedTime();
+    }
+};
+TimeClientHandler timeClientHandler;
 
 // example OOOOOOOOOO_codeMarker();
 void OOOOOOOOOO_codeMarker(byte marker) {
@@ -337,19 +531,19 @@ void OOOOOOOOOO_codeMarker(byte marker) {
   Serial.println(markerHighlight);
 }
 
-String readStringFromEEPROM(int addr) {
-  int i;
-  for (i = 0; i < maxLength; i++) {
-    buffer[i] = EEPROM.read(addr + i);
-    if (buffer[i] == 0) break;
-  }
-  buffer[i] = '\0';
-  Serial.print("Membaca EEPROM [");
-  Serial.print(addr);
-  Serial.print("] = ");
-  Serial.println(String(buffer));
-  return String(buffer);
-}
+// String readStringFromEEPROM(int addr) {
+//   int i;
+//   for (i = 0; i < maxLength; i++) {
+//     buffer[i] = EEPROM.read(addr + i);
+//     if (buffer[i] == 0) break;
+//   }
+//   buffer[i] = '\0';
+//   Serial.print("Membaca EEPROM [");
+//   Serial.print(addr);
+//   Serial.print("] = ");
+//   Serial.println(String(buffer));
+//   return String(buffer);
+// }
 
 // servo
 void servoKatup(int perulanganKatup) {
@@ -751,11 +945,11 @@ void buzzerT(byte bTone) {
 }
 
 // potentiometer
-void potentiometer(String currentTime, String completeTime) {
+void potentiometer() {
   if (!enablePot) {
     return;
   }
-  int potValue = analogRead(potPin);
+  unsigned int potValue = analogRead(potPin);
   static unsigned long lastTime = 0;
 
   if (serialPrint) {
@@ -834,56 +1028,14 @@ void potentiometer(String currentTime, String completeTime) {
       Serial.println("servo pot");
       servoKatup(lastPos);
       potPreviousMillis = millis();
-      lastFood("pot", lastPos, completeTime);
+      lastFood("pot", lastPos, timeClientHandler.completeTime());
       over = false;
     }
   }
 }
 
-// tilt sensor
-void tiltSensor(String completeTime) {
-  if (!enableTiltSensor) {
-    return;
-  }
-  bool sensorState = digitalRead(tiltSensorPin) == LOW;
-  if (sensorState && !lastSensorState) {
-    sensorDTime = millis();
-  }
-  if (sensorState && (millis() - sensorDTime >= 5000)) {
-    ifPrintln("tilt sensor true");
-
-    if (fUpdateT1 && fbdConnected) {
-      if (Firebase.RTDB.setBool(&fbdo, "/tiltSensor/isTiltSensor", true)) {
-        ifPrintln("fb set tilt sensor true");
-      } else {
-        fbdoError();
-      }
-      if (Firebase.RTDB.setString(&fbdo, "/tiltSensor/waktu", completeTime)) {
-        ifPrintln("fb set tiltSensor time");
-      } else {
-        fbdoError();
-      }
-      fUpdateT1 = false;
-      fUpdateT2 = true;
-    }
-  } else if (!sensorState) {
-    ifPrintln("tilt sensor false");
-
-    if (fUpdateT2 && fbdConnected) {
-      if (Firebase.RTDB.setBool(&fbdo, "/tiltSensor/isTiltSensor", false)) {
-        ifPrintln("fb set tilt sensor false");
-        fUpdateT1 = true;
-        fUpdateT2 = false;
-      } else {
-        fbdoError();
-      }
-    }
-  }
-  lastSensorState = sensorState;
-}
-
-// utton
-void button(String completeTime) {
+// button
+void button() {
   if (!enableButton) {
     return;
   }
@@ -905,7 +1057,7 @@ void button(String completeTime) {
       if (buttonKatup) {
         Serial.println("servo button");
         servoKatup(1);
-        lastFood("btn", 1, completeTime);
+        lastFood("btn", 1, timeClientHandler.completeTime());
         buttonKatup = false;
       }
     }
@@ -1221,7 +1373,7 @@ class WebServer {
     void end() {
       webserverEndRequest = true;
       if (webserverEndRequest && isWifiConnect && !wifiAp.hasConnectedDevice() && webServerIsActive) {
-        webserverEndRequest = webserverHasStarted = apIsActive = webServerIsActive = false;
+        webserverEndRequest = webserverHasStarted = webServerIsActive = false;
         server.stop();
         wifiAp.end();
         Serial.println("Webserver stopped");
@@ -1555,6 +1707,36 @@ struct FirebaseHandler {
 };
 FirebaseHandler firebaseHandler = { &fbdo };
 
+// tilt sensor
+void tiltSensor() {
+  if (!enableTiltSensor) {
+    return;
+  }
+  bool tiltSensorState = digitalRead(tiltSensorPin) == LOW;
+  if (tiltSensorState && !lastSensorState) {
+    sensorDTime = millis();
+  }
+  if (tiltSensorState && (millis() - sensorDTime >= 5000)) {
+    ifPrintln("tilt sensor true");
+
+    if (fUpdateT1 && fbdConnected) {
+      firebaseHandler.setBool("/tiltSensor/isTiltSensor", true);
+      firebaseHandler.setString("/tiltSensor/waktu", completeTime);
+      fUpdateT1 = false;
+      fUpdateT2 = true;
+    }
+  } else if (!tiltSensorState) {
+    ifPrintln("tilt sensor false");
+
+    if (fUpdateT2 && fbdConnected) {
+      firebaseHandler.setBool("/tiltSensor/isTiltSensor", false);
+      fUpdateT1 = true;
+      fUpdateT2 = false;
+    }
+  }
+  lastSensorState = tiltSensorState;
+}
+
 // menyimpan data terakhir makanan
 void lastFood(String source, int value, String currentTime) {
   // Example: source = pot / btn, value = 0-3
@@ -1569,58 +1751,41 @@ void lastFood(String source, int value, String currentTime) {
     final = final.substring(final.length() - (formatLength * maxDataLimit), final.length());
   }
   firebaseHandler.setString("/lastFood", final);
-
-  /*if (Firebase.RTDB.getString(&fbdo, "/lastFood")) {
-    const byte maxDataLimit = 50;
-    const byte formatLength = 26;
-    const String newData = "|" + source + "," + value + "," + currentTime;
-
-    String lf = fbdo.stringData();
-    String final = lf;
-
-    final = final + newData;
-    if (final.length() > (formatLength * maxDataLimit)) {
-      final = final.substring(final.length() - (formatLength * maxDataLimit), final.length());
-    }
-    if (Firebase.RTDB.setString(&fbdo, "/lastFood", final)) {
-    } else {
-      fbdoError();
-    }
-  }*/
 }
 
-// void saveStringToEEPROM(int addr, String data) {
-//   int len = data.length();
-//   if (len > maxLength) len = maxLength;
-//   for (int i = 0; i < len; i++) {
-//     EEPROM.put(addr + i, data[i]);
-//   }
-//   EEPROM.write(addr + len, 0);
-//   EEPROM.commit();
-// }
+/* void saveStringToEEPROM(int addr, String data) {
+  int len = data.length();
+  if (len > maxLength) len = maxLength;
+  for (int i = 0; i < len; i++) {
+    EEPROM.put(addr + i, data[i]);
+  }
+  EEPROM.write(addr + len, 0);
+  EEPROM.commit();
+}
 
-// mendapatkan semua data EEPROM
-// String getAllEeprom() {
+mendapatkan semua data EEPROM
+String getAllEeprom() {
 
-//   int eepAddArrSize = sizeof(eepromAddress) / sizeof(eepromAddress[0]);
-//   String result = defaultStr;
-//   String eepReadvalue;
-//   int storedValue;
-//   for (int i = 0; i < eepAddArrSize; i++) {
-//     if (eepromAddress[i] != wifiSsidAddr && eepromAddress[i] != wifiPasswordAddr) {
-//       eepReadvalue = String(accessEEPROM(eepromAddress[i], -1));
-//     } else {
-//       eepReadvalue = readStringFromEEPROM(eepromAddress[i]);
-//     }
+  int eepAddArrSize = sizeof(eepromAddress) / sizeof(eepromAddress[0]);
+  String result = defaultStr;
+  String eepReadvalue;
+  int storedValue;
+  for (int i = 0; i < eepAddArrSize; i++) {
+    if (eepromAddress[i] != wifiSsidAddr && eepromAddress[i] != wifiPasswordAddr) {
+      eepReadvalue = String(accessEEPROM(eepromAddress[i], -1));
+    } else {
+      eepReadvalue = readStringFromEEPROM(eepromAddress[i]);
+    }
 
-//     result += "Membaca EEPROM [";
-//     result += String(eepromAddress[i]);
-//     result += "] = ";
-//     result += eepReadvalue;
-//     result += "\n";
-//   }
-//   return result;
-// }
+    result += "Membaca EEPROM [";
+    result += String(eepromAddress[i]);
+    result += "] = ";
+    result += eepReadvalue;
+    result += "\n";
+  }
+  return result;
+}
+*/
 
 
 // handle OTA
@@ -1708,59 +1873,6 @@ class OtaHandler {
 };
 OtaHandler otaHandler;
 
-class TimeClientHandler {
-  public:
-    bool start() {
-      timeClient.begin();
-      timeClient.setTimeOffset(25200);  // Offset untuk Waktu Indonesia Barat (WIB)
-      return true;
-    }
-
-    String currentTime() {
-      timeClient.update();
-      return timeClient.getFormattedTime().substring(0, 5);
-    }
-
-    String monthDay() {
-      timeClient.update();
-      time_t epochTime = timeClient.getEpochTime();
-      struct tm* ptm = gmtime((time_t*)&epochTime);
-      byte monthDay = ptm->tm_mday;
-      if (monthDay < 10) {
-        monthDayStr = "0" + String(monthDay);
-      } else {
-        monthDayStr = String(monthDay);
-      }
-      return monthDayStr;
-    }
-
-    String currentMonth() {
-      timeClient.update();
-      time_t epochTime = timeClient.getEpochTime();
-      struct tm* ptm = gmtime((time_t*)&epochTime);
-      byte currentMonth = ptm->tm_mon + 1;
-      if (currentMonth < 10) {
-        currentMonthStr = "0" + String(currentMonth);
-      } else {
-        currentMonthStr = String(currentMonth);
-      }
-      return currentMonthStr;
-    }
-
-    String currentYear() {
-      timeClient.update();
-      time_t epochTime = timeClient.getEpochTime();
-      struct tm* ptm = gmtime((time_t*)&epochTime);
-      int currentYear = ptm->tm_year + 1900;
-      return String(currentYear);
-    }
-
-    String completeTime() {
-      return String(currentYear()) + "-" + currentMonth() + "-" + monthDay() + " " + timeClient.getFormattedTime();
-    }
-};
-TimeClientHandler timeClientHandler;
-
 class CommandHandler {
   public:
     // Contoh command: led.builtin on 1000
@@ -1791,17 +1903,18 @@ class CommandHandler {
       }
     }
 
-    void output(const String oCommand) {
+    void output(const String oCommand, const bool serialCommand) {
       if (oCommand != "~") {
-        if (commandSource == 1) Serial.println("command output: " + oCommand);
-        if (commandSource == 2) (firebaseHandler.setString("/command/output", oCommand));
-        commandSource = 0;
+        if (serialCommand) {
+          Serial.println("command output: " + oCommand);
+        } else {
+          firebaseHandler.setString("/command/output", oCommand);
+        }
       }
     }
 
   // target.command  param1 param2 p...
   bool execute(String INF_execute_rawCommand) {
-    if (commandSource == 0) return false;
     parse(INF_execute_rawCommand);
     Serial.println("=== EXECUTING COMMAND ===");
     Serial.println("Target : " + target);
@@ -1813,14 +1926,14 @@ class CommandHandler {
     if (target == "wifi") {  // wifi
       if (command == "getRssi") {
         long rssi = WiFi.RSSI();
-        output(String(rssi));
+        output(String(rssi), isSerialCommand);
       } else if (command == "getLocalIp") {
-        output(WiFi.localIP().toString());
+        output(WiFi.localIP().toString(), isSerialCommand);
       } else if (command == "getMacAddress") {
-        output(WiFi.macAddress());
+        output(WiFi.macAddress(), isSerialCommand);
       } else if (command == "begin") {
         if (params[0].length() >= 30 || params[1].length() >= 30) {
-        output("ssid atau password lebih dari 30 huruf");
+        output("SSID atau password lebih dari 30 karakter", isSerialCommand);
         return false;
         }
         newWifiSsid = params[0];
@@ -1829,37 +1942,42 @@ class CommandHandler {
         wait(500);
         wifiHandler.startConnect();
       } else if (command == "getApStationNum") {
-        output(String(WiFi.softAPgetStationNum()));
+        output(String(WiFi.softAPgetStationNum()), isSerialCommand);
       } else if (command == "getStatus") {
-        output(String(WiFi.status()));
+        output(String(WiFi.status()), isSerialCommand);
       } else if (command == "getMode") {
-        output(String(WiFi.getMode()));
+        output(String(WiFi.getMode()), isSerialCommand);
+      } else {
+        output(unknownCommand, isSerialCommand);
       }
     } else if (target == "esp") {  // ESP 8266
       if (command == "restart") {
-        output("restarting ESP8266");
+        output("restarting ESP8266" , isSerialCommand);
         firebaseHandler.setString("command/inputCode", "~");
         ESP.restart();
       } else if (command == "getMillis") {
-        output(String(millis()));
+        output(String(millis()),isSerialCommand);
       } else if (command == "getFreeHeap") {
-        output(String(ESP.getFreeHeap()));
+        output(String(ESP.getFreeHeap()), isSerialCommand);
       } else if (command == "getHeapFragmentation") {
-        output(String(ESP.getHeapFragmentation()));
+        output(String(ESP.getHeapFragmentation()), isSerialCommand);
       } else if (command == "getMaxFreeBlockSize") {
-        output(String(ESP.getMaxFreeBlockSize()));
+        output(String(ESP.getMaxFreeBlockSize()), isSerialCommand);
       } else if (command == "getFlashChipSize") {
-        output(String(ESP.getFlashChipSize()));
+        output(String(ESP.getFlashChipSize()), isSerialCommand);
       } else if (command == "getFlashChipRealSize") {
-        output(String(ESP.getFlashChipRealSize()));
+        output(String(ESP.getFlashChipRealSize()), isSerialCommand);
       } else if (command == "getFreeSketchSpace") {
-        output(String(ESP.getFreeSketchSpace()));
+        output(String(ESP.getFreeSketchSpace()), isSerialCommand);
       } else if (command == "getSketchSize") {
-        output(String(ESP.getSketchSize()));
+        output(String(ESP.getSketchSize()), isSerialCommand);
       } else if (command == "setDelay") {
-        output("esp delay start");
+        output("esp delay start", isSerialCommand);
+        unsigned long espDelayStartTime = millis();
         wait(params[0].toInt());
-        output("esp delay ended");
+        output("esp delay ended", isSerialCommand);
+      } else {
+        output(unknownCommand, isSerialCommand);
       }
 
     } else if (target == "servo") {  // Servo
@@ -1867,32 +1985,32 @@ class CommandHandler {
         if (params[0].toInt() <= 180) {
           servoMaxAngle = params[0].toInt();
           eepromManager.putData(servoMaxAngleAddr, params[0].toInt());
-          output("servo set max angle");
+          output("servo set max angle", isSerialCommand);
         } else {
-          output("error: angle too large");
+          output("error: angle too large",  isSerialCommand);
         }
       } else if (command == "setOpenDelay") {
         if (params[0].toInt() <= 10000) {
           servoOpenDelay = params[0].toInt();
           eepromManager.putData(servoOpenDelayAddr, servoOpenDelay);
-          output("servo set open delay");
+          output("servo set open delay", isSerialCommand);
         } else {
-          output("error: delay too long");
+          output("error: delay too long", isSerialCommand);
         }
       } else if (command == "setCloseDelay") {
         if (params[0].toInt() >= 80) {
           servoCloseDelay = params[0].toInt();
           eepromManager.putData(servoCloseDelayAddr, servoCloseDelay);
-          output("servo set close delay");
+          output("servo set close delay", isSerialCommand);
         } else {
-          output("error: delay too fast");
+          output("error: delay too fast", isSerialCommand);
         }
       } else if (command == "setAngle") {
         myServo.attach(servoPin, 500, 2500);
         myServo.write(params[0].toInt());
         delay(500);
         myServo.detach();
-        output("servo set to current angle");
+        output("servo set to current angle", isSerialCommand);
       } else if (command == enable) {
         bool enableServo2 = true;
         if (params[0] == trueVal) {
@@ -1902,12 +2020,14 @@ class CommandHandler {
           eepromManager.putData(enableServoAddr, 0);
           enableServo = false;
         } else {
-          output("error: wrong value");
+          output(wrongBoolValue, isSerialCommand);
           enableServo2 = false;
         }
         if (enableServo2) {
-          output("servo permission updated");
+          output("servo permission updated", isSerialCommand);
         }
+      } else {
+        output(unknownCommand, isSerialCommand);
       }
     } else if (target == "buzzer") {  // Buzzer
       if (command == "playNote") {
@@ -1915,7 +2035,7 @@ class CommandHandler {
         tone(buzzerPin, playNote);
         delay(params[1].toInt());
         noTone(buzzerPin);
-        output("buzzer note complete running");
+        output("buzzer note complete running", isSerialCommand);
       } else if (command == enable) {
         bool enableBuzzer2 = true;
         if (params[0] == trueVal) {
@@ -1925,11 +2045,11 @@ class CommandHandler {
           eepromManager.putData(enableBuzzerAddr, 0);
           enableBuzzer = false;
         } else {
-          output("error: wrong value");
+          output("error: wrong value", isSerialCommand);
           enableBuzzer2 = false;
         }
         if (enableBuzzer2) {
-          output("buzzer permission updated");
+          output("buzzer permission updated", isSerialCommand);
         }
 
       } else if (command == "playMelody") {
@@ -1950,58 +2070,62 @@ class CommandHandler {
         } else if (params[0] == "peringatan") {
           buzzerT(8);
         }
-        output("buzzer melody complete running");
+        output("buzzer melody complete running", isSerialCommand);
+      } else {
+        output(unknownCommand, isSerialCommand);
       }
 
     } else if (target == "eeprom") {  // Eeprom
       if (command == "get") {
         int intValues = params[0].toInt();
         if (intValues != wifiSsidAddr && intValues != wifiPasswordAddr) {
-          output(String(eepromManager.getData(params[0].toInt(), false)));
+          output(String(eepromManager.getData(params[0].toInt(), false)), isSerialCommand);
         } else {
-          output(eepromManager.readString(params[0].toInt(), false));
+          output(eepromManager.readString(params[0].toInt(), false), isSerialCommand);
         }
       } else if (command == "getAll") {
         String getAllResult = eepromManager.getAll(true);
         getAllResult.replace("\n", "\\n");
         Serial.println(getAllResult);
-        output(getAllResult);
+        output(getAllResult, isSerialCommand);
       } else if (command == "writeString") {
         if (params[0].toInt() == wifiSsidAddr || params[0].toInt() == wifiPasswordAddr && params[1].length() <= 30) {
           eepromManager.writeString(params[0].toInt(), params[1]);
-          output("string data is saved");
+          output("string data is saved", isSerialCommand);
         } else {
-          output("error: destination address saves integer");
+          output("error: destination address saves integer", isSerialCommand);
         }
       } else if (command == "writeInterger") {
         if (params[0].toInt() != wifiSsidAddr && params[0].toInt() != wifiPasswordAddr) {
           if (params[1].toInt() <= 99999) {
             eepromManager.putData(params[0].toInt(), params[1].toInt());
-            output("interger data is saved");
+            output("interger data is saved", isSerialCommand);
           } else {
-            output("error: number greater than 99999");
+            output("error: number greater than 99999",  isSerialCommand);
           }
         } else {
-          output("error: destination address saves string");
+          output("error: destination address saves string", isSerialCommand);
         }
+      } else {
+        output(unknownCommand, isSerialCommand);
       }
     } else if (target == "led") {
       if (command == "state") {  // set led status
         if (params[0] == trueVal) {
           digitalWrite(ledPin, HIGH);
-          output("led true");
+          output("led true", isSerialCommand);
         } else if (params[0] == trueVal) {
           digitalWrite(ledPin, LOW);
-          output("led false");
+          output("led false",   isSerialCommand);
         }
       } else if (command == "effect") {
         if (params[0] == "fadeIn") {
           ledFadeIn();
           digitalWrite(ledPin, LOW);
-          output("led fadeing in");
+          output("led fadeing in", isSerialCommand);
         } else if (params[0] == "fadeOut") {
           ledFadeOut();
-          output("led fadeing out");
+          output("led fadeing out", isSerialCommand);
         }
       } else if (target == "led.enable") {
         bool enableLed2 = true;
@@ -2012,12 +2136,14 @@ class CommandHandler {
           eepromManager.putData(enableLedAddr, 0);
           enableLed = false;
         } else {
-          output("error: wrong value");
+          output("error: wrong value", isSerialCommand);
           enableLed2 = false;
         }
         if (enableLed2) {
-          output("led permission updated");
+          output("led permission updated", isSerialCommand);
         }
+      } else {
+        output(unknownCommand, isSerialCommand);
       }
     } else if (target == "pot") {
       if (command == enable) {
@@ -2029,12 +2155,16 @@ class CommandHandler {
           eepromManager.putData(enablePotAddr, 0);
           enablePot = false;
         } else {
-          output("error: wrong value");
+          output(wrongBoolValue, isSerialCommand);
           enablePot2 = false;
         }
         if (enablePot2) {
-          output("pot permission updated");
+          output("pot permission updated", isSerialCommand);
         }
+      } else if (command == "getPosition") {
+        output(String(currentPos), isSerialCommand);
+      } else {
+        output(unknownCommand, isSerialCommand);
       }
     } else if (target == "button") { // Button2
       if (command == "button.enable") {  // enable button
@@ -2046,13 +2176,15 @@ class CommandHandler {
           eepromManager.putData(enableButtonAddr, 0);
           enableButton = false;
         } else {
-          output("error: wrong value");
+          output("error: wrong value", isSerialCommand);
           enableButton2 = false;
         }
         if (enableButton2) {
-          output("button permission updated");
+          output("button permission updated", isSerialCommand);
         }
 
+      } else {
+        output(unknownCommand, isSerialCommand);
       }
     } else if (target == "tiltSensor") {
       if (command == enable) {  // enable tilt sensor
@@ -2064,24 +2196,34 @@ class CommandHandler {
           eepromManager.putData(enableTiltSensorAddr, 0);
           enableTiltSensor = false;
         } else {
-          output("error: wrong value");
+          output("error: wrong value", isSerialCommand);
           enableTiltSensor2 = false;
         }
         if (enableTiltSensor2) {
-          output("servo permission updated");
+          output("servo permission updated", isSerialCommand);
         }
+      } else if (command == "getState") {
+        if (tiltSensorState) {
+          output(trueVal, isSerialCommand);
+        } else {
+          output(falseVal, isSerialCommand);
+        }
+      } else {
+        output(unknownCommand, isSerialCommand);
       }
     } else if (target == "ota") {
       if (command == "run") {
         if (params[0] == trueVal) {
-          output("OTA start");
+          output("OTA start", isSerialCommand);
           otaHandler.start();
         } else if (params[0] == falseVal) {
           otaHandler.end();
-          output("OTA ended");
+          output("OTA ended", isSerialCommand);
         } else {
-          output(wrongBoolValue);
+          output(wrongBoolValue, isSerialCommand);
         }
+      } else {
+        output(unknownCommand, isSerialCommand);
       }
 
 
@@ -2089,18 +2231,22 @@ class CommandHandler {
       if (command == "run") {
         if (params[0] == trueVal) {
           webServerIsActive = true;
-          output("webserver started");
+          output("webserver started", isSerialCommand);
         } else if (params[0] == falseVal) {
           webServerIsActive = false;
-          output("webserver ended");
+          output("webserver ended", isSerialCommand);
         } else {
-          output(wrongBoolValue);
+          output(wrongBoolValue, isSerialCommand);
         }
+      } else {
+        output(unknownCommand, isSerialCommand);
       }
     } else if (target == "serial") {
       if (command == "enablePrint") {
         codeMarkerPrint = (params[0] == oneStr);
-      } else if (command == "output") {}
+      } else {
+        output(unknownCommand, isSerialCommand);
+      }
     } else if (target == "feedo") {
       if (command == "appLock") {
         bool parameter;
@@ -2115,20 +2261,30 @@ class CommandHandler {
       } else if (command == "setValveLoop") {
         katupsBaru[params[0].toInt() + 1] = params[1].toInt();
       } else if (command == "getLoopRate") {
-        output(String(loopRateHz));
+        output(String(loopRateHz), isSerialCommand);
       } else if (command == "getLatestUpdate") {
-        output(mobileLatestUp);
-      } else if (command == "getPotPosition") {
-        output(String(currentPos));
+        output(mobileLatestUp, isSerialCommand);
       } else if (command == "feeding") {
         servoKatup(params[0].toInt());
-        output("valve finished running");
+        output("valve finished running", isSerialCommand);
       } else if (command == "setOutput") {
-        commandSource = (params[0] == "app") ? 2 : 1;
-        output(params[1]);
+        output(params[1], (params[0] != "app"));
+      } else if (command == "getPing") {
+        unsigned long pingStartTime = millis();
+        String pingCode = String(random(0, 999));
+        firebaseHandler.setString("/command/output", pingCode);
+        if (firebaseHandler.getString("/command/output") == pingCode) {
+          double ping = millis() - pingStartTime;
+          output(String(ping), isSerialCommand);
+        } else {
+          output("error: ping failed", isSerialCommand);
+        }
+
+      }else {
+        output(unknownCommand, isSerialCommand);
       }
     } else {
-      output(unknownCommand);
+      output(unknownTarget, isSerialCommand);
     }
     firebaseHandler.setString("/command/inputCode", "~");
     return true;
@@ -2256,7 +2412,7 @@ void loop() {
     if (serialMessage == "p") {
       serialPrint = !serialPrint;
     } else {
-      commandSource = 1;
+      isSerialCommand = true;
       commandHandler.execute(serialMessage);
     }
   }
@@ -2266,12 +2422,12 @@ void loop() {
   // runtime tasks
   loopRate();
   otaHandler.autoHandle();
-  button(completeTime);
-  tiltSensor(completeTime);
-  potentiometer(currentTime, completeTime);
+  button();
+  tiltSensor();
+  potentiometer();
   if (webServerIsActive) server.handleClient();
   if (currentTime == "00:00") ESP.deepSleepMax(); // deepsleep
-  if ((fbdConnected = firebaseHandler.start())) fbdConnected = Firebase.ready(); // cek apakah sudah signup firebase
+  if ((fbdConnected = firebaseHandler.start() ) ) fbdConnected = Firebase.ready(); // cek apakah sudah signup firebase
 
   OOOOOOOOOO_codeMarker(7);
 
@@ -2370,7 +2526,7 @@ void loop() {
 
       rawCommand = firebaseHandler.getString("/command/inputCode");
       if (rawCommand.length() > 0 && rawCommand != "~") {
-        commandSource = 2;
+        isSerialCommand = false;
         commandHandler.execute(rawCommand);
       }
 

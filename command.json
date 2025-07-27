@@ -42,13 +42,15 @@
     "enable": ["true/false"]
   },
   "pot": {
-    "enable": ["true/false"]
+    "enable": ["true/false"],
+    "getPosition" : []
   },
   "button": {
     "enable": ["true/false"]
   },
   "tiltSensor": {
-    "enable": ["true/false"]
+    "enable": ["true/false"],
+    "getState": []
   },
   "ota": {
     "run": ["true/false"]
@@ -63,9 +65,10 @@
     "appLock" : ["true/false"],
     "setSchedule" : ["time 00:00"],
     "setValveLoop" : ["loop"],
+    "setOutput" : ["app/serial", "output message"],
     "getLoopRate" : [],
     "getLatestUpdate" : [],
-    "getPotPosition" : [],
-    "feeding" : ["feeding"]
+    "feeding" : ["feeding"],
+    "getPing" : [],
   }
 }
