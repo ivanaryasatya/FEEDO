@@ -4,7 +4,8 @@
     "getlocalIp": [],
     "getMacAddress": [],
     "getStatus": ["AP/STA"],
-    "begin": ["ssid", "password"]
+    "begin": ["ssid", "password"],
+    "getApStationNum": []
   },
   "esp": {
     "restart": [],

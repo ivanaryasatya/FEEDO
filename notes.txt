@@ -103,24 +103,8 @@ check list:
 - perbaiki function handler wifi dan AP
 - perbaiki letak class dan function
 
-//2025
-//2025
-//2025
-//2025
-//2025
-//2025
-//2025
-//2025
-//2025
-//2025
-//2025
-//2025
-//2025
-//2025
-//2025
-//2025
-//2025
-//2025
-//2025
-//2025
-//2025
+29/07/2025
+
+- hapus mode printinfo AP di struct wifihandler
+! perbaiki ap yang tidak dapat muncul
+- ubah beberapa penempatan variabel

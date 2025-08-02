@@ -40,8 +40,8 @@
 #include <ESP8266WebServer.h>
 #include <firebase_secret.h>
 
-#define API_KEY "API_KEY_here"
-#define DATABASE_URL "DATABASE_URL_here"
+#define API_KEY "AIzaSyALzv1N1Kdh84U_lhwgb3jXlGSy-9EWMyo"
+#define DATABASE_URL "https://feedo-39725-default-rtdb.firebaseio.com/"
 
 #define ledPin D3
 #define servoPin D5
@@ -91,7 +91,6 @@ bool
   fUpdateP1 = true,
   cooldownK = false,
   bCooldown = false,
-  apIsActive = false,
   delayP = true,
   firebaseUpdate = true,
   buzzerAct = false,
@@ -183,6 +182,10 @@ String
 byte eepromAddress[] = { servoMaxAngleAddr, servoMinAngleAddr, servoOpenDelayAddr, servoCloseDelayAddr, wifiSsidAddr, wifiPasswordAddr, enableServoAddr, enableBuzzerAddr, enableLedAddr, enablePotAddr, enableButtonAddr, enableTiltSensorAddr };
 String waktusBaru[24];
 int katupsBaru[24];
+
+IPAddress local_ip(192, 168, 4, 1);       // IP untuk ESP8266 (default: 192.168.4.1)
+IPAddress gateway(192, 168, 4, 1);        // Gateway
+IPAddress subnet(255, 255, 255, 0);       // Subnet mask
 
 static const char main_page[] PROGMEM = R"=====(
 <!DOCTYPE html>
@@ -1282,16 +1285,23 @@ class EepromManager {
 };
 EepromManager eepromManager;
 
+// wifiAp.begin(); akan mengaktifkan AP mode
 class WifiAp {
   public:
+    bool apHasStarted = false;
+    bool status = false;
+
     void begin() {
-      if (!apIsActive) {
+      if (!status && !apHasStarted) {
         Serial.println("turning on AP mode");
+        WiFi.mode(WIFI_AP_STA);
         WiFi.softAP(APSsid, APPassword);
-        apIsActive = true;
+        wait(500);
+        status = true;
+        apHasStarted = true;
 
         Serial.print("AP status: ");
-        Serial.println(apIsActive);
+        Serial.println(status);
         Serial.print("SSID: ");
         Serial.println(APSsid);
         Serial.print("password: ");
@@ -1302,18 +1312,15 @@ class WifiAp {
       }
     }
     void end() {
-      if (apIsActive) {
+      if (status) {
         Serial.println("turning off AP mode");
         WiFi.softAPdisconnect(true);
-        apIsActive = false;
+        status = false;
+        apHasStarted = false;
       }
     }
     bool hasConnectedDevice() {
-      if (WiFi.softAPgetStationNum() > 0) {
-        return true;
-      } else {
-        return false;
-      }
+      return WiFi.softAPgetStationNum() > 0;
     }
 };
 WifiAp wifiAp;
@@ -1330,9 +1337,10 @@ class WebServer {
       static bool webServerHasStoped = true;
 
       if (!webserverHasStarted) {
+        wifiAp.begin();
+        Serial.println("Starting webserver...");
         webserverEndRequest = webServerHasStoped = false;
         webServerIsActive = true;
-        wifiAp.begin();
         server.on("/", handleRoot);
         server.on("/action_page", handleForm);
 
@@ -1373,7 +1381,9 @@ class WebServer {
     void end() {
       webserverEndRequest = true;
       if (webserverEndRequest && isWifiConnect && !wifiAp.hasConnectedDevice() && webServerIsActive) {
-        webserverEndRequest = webserverHasStarted = webServerIsActive = false;
+        webserverEndRequest = false;
+        webserverHasStarted = false;
+        webServerIsActive = false;
         server.stop();
         wifiAp.end();
         Serial.println("Webserver stopped");
@@ -1407,6 +1417,8 @@ class WifiHandler {
     void startConnect() {
       static bool handlerWifiStatus = false;
       static bool wifiHasSetToApSta = false;
+
+      WiFi.softAPConfig(local_ip, gateway, subnet);
       unsigned long handleTimeout = millis();
       if (!wifiHasSetToApSta) {
         WiFi.mode(WIFI_AP_STA);
@@ -1437,13 +1449,14 @@ class WifiHandler {
 
       if (WiFi.status() == WL_CONNECTED) { // koneksi berhasil
         isWifiConnect = true;
-        webserver.end();
         OOOOOOOOOO_codeMarker(16);
+        webserver.end();
+        wifiAp.end();
         if (onceWifiStatusTask) {
           digitalWrite(LED_BUILTIN, LOW);
           delay(200);
           digitalWrite(LED_BUILTIN, HIGH);
-          printInfo(1);
+          printInfo();
           onceWifiStatusTask = false;
         }
         if (wifiHasChanged) {
@@ -1483,27 +1496,26 @@ class WifiHandler {
     // AP STA mode = 0
     // STA mode = 1
     // AP mode = 2
-    void printInfo(const byte mode) {
-      if (mode == 1 || mode == 0) {
-        Serial.print("wifi status: ");
-        Serial.println(isWifiConnect);
-        Serial.print("SSID: ");
-        Serial.println(wifiSsid);
-        Serial.print("password: ");
-        Serial.println(wifiPassword);
-        Serial.print("wifi IP: ");
-        Serial.println(WiFi.localIP());
-      }
-      if (mode == 2 || mode == 0) {
-        Serial.print("AP status: ");
-        Serial.println(apIsActive);
-        Serial.print("SSID: ");
-        Serial.println(APSsid);
-        Serial.print("password: ");
-        Serial.println(APPassword);
-        Serial.print("AP IP: ");
-        Serial.println(WiFi.softAPIP());
-      }
+    void printInfo() {
+      Serial.print("wifi status: ");
+      Serial.println(isWifiConnect);
+      Serial.print("SSID: ");
+      Serial.println(wifiSsid);
+      Serial.print("password: ");
+      Serial.println(wifiPassword);
+      Serial.print("wifi IP: ");
+      Serial.println(WiFi.localIP());
+
+      // if (mode == 2 || mode == 0) {
+      //   Serial.print("AP status: ");
+      //   Serial.println(wifiAp.status);
+      //   Serial.print("SSID: ");
+      //   Serial.println(APSsid);
+      //   Serial.print("password: ");
+      //   Serial.println(APPassword);
+      //   Serial.print("AP IP: ");
+      //   Serial.println(WiFi.softAPIP());
+      // }
     }
 
 };
@@ -1816,7 +1828,10 @@ class OtaHandler {
     void start() {
       if (!otaInitialized) {
         otaHasEnded = false;
+        // wifiAp.begin();
+        // ganti ap manual
         wifiAp.begin();
+
         ArduinoOTA.onStart([]() {
           String type;
           if (ArduinoOTA.getCommand() == U_FLASH) {
