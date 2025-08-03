@@ -16,7 +16,13 @@ Berikut ini adalah daftar masalah yang sedang diketahui dan akan diperbaiki
 - **Status:** belum di perbaiki
 - **Notes:** sepertinya karena perpindahan path
 
+---
 
+## [v1.2.6] - 03-08-2025
+### soft wdt reset
+- **Description:** tereset saat masukkan command lewat serial
+- **Status:** belum di perbaiki
+- **Notes:** pada kode execute()
 
 
 

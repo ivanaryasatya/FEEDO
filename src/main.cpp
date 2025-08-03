@@ -18,7 +18,7 @@
   Sketch created by: Ivan Aryasatya
   Webserver IP: http://192.168.4.1/
   Site: https://feedo.fardhan.com/
-  Version: 1.2.5
+  Version: 1.2.6
 
 */
 #include <Arduino.h>
@@ -78,7 +78,7 @@ int
   totalTime = defaultInt;
 
 const unsigned int tones[] = { 300, 400, 500, 600, 700, 800, 900, 1000 };
-float loopRateHz = 225;
+float loopRateHz = 0.0;
 bool
   systemHasStarted = false,
   signupOK = false,
@@ -317,11 +317,6 @@ static const char main_page[] PROGMEM = R"=====(
 )=====";
 
 // --------------------------------- functions ---------------------------------//
-
-String target;
-String command;
-String rawCommand = "~";
-std::vector<String> params;
 
 // struct command
 const String wrongBoolValue = "error: wrong value, must be true or false";
@@ -1131,10 +1126,10 @@ void loopRate() {
 // loop rate
 float loopRate() {
   static unsigned long lastMillis = 0;
-  static int loopCounter = 0;
-  static int totalLoops = 0;
+  static unsigned int loopCounter = 0;
+  static unsigned int totalLoops = 0;
   float rataHz;
-  byte intervalDetik = 5;
+  const byte intervalDetik = 5;
   loopCounter++;
   totalLoops++;
 
@@ -1890,24 +1885,34 @@ OtaHandler otaHandler;
 
 class CommandHandler {
   public:
+    String target;
+    String command;
+    String rawCommand = "~";
+    std::vector<String> params;
+
     // Contoh command: led.builtin on 1000
     void parse(String input) {
-      input.trim();  // Buang spasi depan-belakang
+
+      if (input.startsWith("feedo.executeCommand ")) {
+        input = input.substring(21);
+      }
+
+      input.trim();
       params.clear();
 
       // ambil target.command
-      int spaceIdx = input.indexOf(' ');
-      String head = input.substring(0, spaceIdx);
-      String rest = input.substring(spaceIdx + 1);
+      const byte spaceIdx = input.indexOf(' ');
+      const String head = input.substring(0, spaceIdx);
+      const String rest = input.substring(spaceIdx + 1);
 
-      int dotIdx = head.indexOf('.');
+      const byte dotIdx = head.indexOf('.');
       target = head.substring(0, dotIdx);
       command = head.substring(dotIdx + 1);
 
       // buat parameter
-      int start = 0;
+      byte start = 0;
       while (true) {
-        int sp = rest.indexOf(' ', start);
+        const byte sp = rest.indexOf(' ', start);
         if (sp == -1) {
           String param = rest.substring(start);
           if (param.length()) params.push_back(param);
@@ -1928,9 +1933,10 @@ class CommandHandler {
       }
     }
 
-  // target.command  param1 param2 p...
-  bool execute(String INF_execute_rawCommand) {
-    parse(INF_execute_rawCommand);
+    // target.command  param1 param2 p...
+    bool execute(const String rawCommand) {
+    if (!commandCheck(rawCommand)) return false;
+    parse(rawCommand);
     Serial.println("=== EXECUTING COMMAND ===");
     Serial.println("Target : " + target);
     Serial.println("Command: " + command);
@@ -2295,7 +2301,9 @@ class CommandHandler {
           output("error: ping failed", isSerialCommand);
         }
 
-      }else {
+      } else if (command == "executeCommand") {
+        execute(params[0]);
+      } else {
         output(unknownCommand, isSerialCommand);
       }
     } else {
@@ -2303,6 +2311,10 @@ class CommandHandler {
     }
     firebaseHandler.setString("/command/inputCode", "~");
     return true;
+  }
+
+  bool commandCheck(const String& checkCommand) {
+    return (checkCommand.indexOf('.') != -1 && checkCommand.length() >= 5);
   }
 };
 CommandHandler commandHandler;
@@ -2426,6 +2438,8 @@ void loop() {
     serialMessage = Serial.readStringUntil('\n');
     if (serialMessage == "p") {
       serialPrint = !serialPrint;
+    } else if (serialMessage == "l") {
+      Serial.println("loop rate: " + String(loopRateHz));
     } else {
       isSerialCommand = true;
       commandHandler.execute(serialMessage);
@@ -2539,10 +2553,10 @@ void loop() {
         ifPrintln("fb set throwOut false");
       }
 
-      rawCommand = firebaseHandler.getString("/command/inputCode");
-      if (rawCommand.length() > 0 && rawCommand != "~") {
+      commandHandler.rawCommand = firebaseHandler.getString("/command/inputCode");
+      if (commandHandler.rawCommand.length() > 0 && commandHandler.rawCommand != "~") {
         isSerialCommand = false;
-        commandHandler.execute(rawCommand);
+        commandHandler.execute(commandHandler.rawCommand);
       }
 
       firebaseUpdate = false;
