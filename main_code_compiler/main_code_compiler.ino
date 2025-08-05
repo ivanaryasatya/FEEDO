@@ -40,6 +40,9 @@
 #include <ESP8266WebServer.h>
 #include <firebase_secret.h>
 
+#define API_KEY ""
+#define DATABASE_URL ""
+
 #define ledPin D3
 #define servoPin D5
 #define buttonPin D2
