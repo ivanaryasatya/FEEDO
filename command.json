@@ -27,7 +27,7 @@
     "enable": ["true/false"]
   },
   "buzzer": {
-    "playNote": ["note", "duration"],
+    "playTone": ["tone", "duration"],
     "enable": ["true/false"],
     "playMelody": ["melody"]
   },

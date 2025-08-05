@@ -18,7 +18,7 @@
   Sketch created by: Ivan Aryasatya
   Webserver IP: http://192.168.4.1/
   Site: https://feedo.fardhan.com/
-  Version: 1.2.6
+  Version: 1.2.7
 
 */
 #include <Arduino.h>
@@ -40,8 +40,8 @@
 #include <ESP8266WebServer.h>
 #include <firebase_secret.h>
 
-#define API_KEY "your_api_key_here"
-#define DATABASE_URL "your_database_url_here"
+    #define API_KEY "your_api_key_here"
+    #define DATABASE_URL "your_database_url_here"
 
 #define ledPin D3
 #define servoPin D5
@@ -192,7 +192,7 @@ static const char main_page[] PROGMEM = R"=====(
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>ESP8266 Control Panel</title>
+  <title>FEEDO Control Panel</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -283,7 +283,7 @@ static const char main_page[] PROGMEM = R"=====(
     🔗 Go to main website (Feedo)
   </a>
 
-  <h2>ESP8266 Control Panel</h2>
+  <h2>FEEDO Control Panel</h2>
 
   <form action="/action_page" method="POST">
     <div class="section">
@@ -1332,7 +1332,11 @@ class WebServer {
       static bool webServerHasStoped = true;
 
       if (!webserverHasStarted) {
-        wifiAp.begin();
+        // wifiAp.begin();
+        // WiFi.softAP(APSsid, APPassword);
+        wifiAp.status = true;
+        wait(500);
+
         Serial.println("Starting webserver...");
         webserverEndRequest = webServerHasStoped = false;
         webServerIsActive = true;
@@ -1363,7 +1367,7 @@ class WebServer {
           apStartTime = millis();
         } else {
           if (apTimerStarted && millis() - apStartTime >= 180000) {
-            Serial.println("No AP clients for 3 minutes, disabling AP and webserver...");
+            Serial.println("No AP clients for 3 minutes, disabling webserver...");
             end();
             apTimerStarted = false;
             apStartTime = millis();
@@ -1380,7 +1384,7 @@ class WebServer {
         webserverHasStarted = false;
         webServerIsActive = false;
         server.stop();
-        wifiAp.end();
+        // wifiAp.end();
         Serial.println("Webserver stopped");
       }
 
@@ -1406,6 +1410,8 @@ class WebServer {
 WebServer webserver;
 // wifi handler
 class WifiHandler {
+  private:
+    bool onceAp = true;
 
   public:
     // mulai koneksi dengan begin()
@@ -1415,6 +1421,10 @@ class WifiHandler {
 
       WiFi.softAPConfig(local_ip, gateway, subnet);
       unsigned long handleTimeout = millis();
+      if (onceAp) {
+        WiFi.softAP(APSsid, APPassword);
+        onceAp = false;
+      }
       if (!wifiHasSetToApSta) {
         WiFi.mode(WIFI_AP_STA);
         wifiHasSetToApSta = true;
@@ -1425,12 +1435,13 @@ class WifiHandler {
       } else {
         WiFi.begin(wifiSsid, wifiPassword);
       }
+
       OOOOOOOOOO_codeMarker(19);
 
       while (WiFi.status() != WL_CONNECTED && millis() - handleTimeout < 15000) {
         OOOOOOOOOO_codeMarker(14);
         Serial.print(".");
-        delay(200);
+        wait(200);
       }
       OOOOOOOOOO_codeMarker(15);
       Serial.println(" ");
@@ -1445,8 +1456,9 @@ class WifiHandler {
       if (WiFi.status() == WL_CONNECTED) { // koneksi berhasil
         isWifiConnect = true;
         OOOOOOOOOO_codeMarker(16);
+        // debug
         webserver.end();
-        wifiAp.end();
+        // wifiAp.end();
         if (onceWifiStatusTask) {
           digitalWrite(LED_BUILTIN, LOW);
           delay(200);
@@ -1823,9 +1835,10 @@ class OtaHandler {
     void start() {
       if (!otaInitialized) {
         otaHasEnded = false;
-        // wifiAp.begin();
-        // ganti ap manual
-        wifiAp.begin();
+        //wifiAp.begin();
+        // WiFi.softAP(APSsid, APPassword);
+        // wifiAp.status = true;
+        wait(500);
 
         ArduinoOTA.onStart([]() {
           String type;
@@ -1858,7 +1871,6 @@ class OtaHandler {
         });
         ArduinoOTA.begin();
         Serial.println("OTA is ready");
-        Serial.println(WiFi.softAPIP());
         otaIsActive = otaInitialized = true;
         OOOOOOOOOO_codeMarker(2);
       }
@@ -1891,28 +1903,65 @@ class CommandHandler {
     std::vector<String> params;
 
     // Contoh command: led.builtin on 1000
+    // void parse(String input) {
+    //   // debug
+    //   Serial.println("parse 1");
+
+    //   // if (input.startsWith("feedo.executeCommand ")) {
+    //   //   input = input.substring(21);
+    //   // }
+
+    //   input.trim();
+    //   params.clear();
+
+    //   // ambil target.command
+    //   const byte spaceIdx = input.indexOf(' ');
+    //   const String head = input.substring(0, spaceIdx);
+    //   const String rest = input.substring(spaceIdx + 1);
+
+    //   const byte dotIdx = head.indexOf('.');
+    //   target = head.substring(0, dotIdx);
+    //   command = head.substring(dotIdx + 1);
+
+    //   Serial.println("parse 2"); // debug
+    //   // buat parameter
+    //   byte start = 0;
+    //   while (true) {
+    //     Serial.println("parse 3"); // debug
+    //     const byte sp = rest.indexOf(' ', start);
+    //     if (sp == -1) {
+    //       String param = rest.substring(start);
+    //       if (param.length()) params.push_back(param);
+    //       break;
+    //     }
+    //     params.push_back(rest.substring(start, sp));
+    //     start = sp + 1;
+    //   }
+    //   Serial.println("parse 4"); // debug
+    // }
+
     void parse(String input) {
 
       if (input.startsWith("feedo.executeCommand ")) {
         input = input.substring(21);
       }
 
-      input.trim();
+      input.trim();  // Buang spasi depan-belakang
       params.clear();
 
       // ambil target.command
-      const byte spaceIdx = input.indexOf(' ');
-      const String head = input.substring(0, spaceIdx);
-      const String rest = input.substring(spaceIdx + 1);
+      int spaceIdx = input.indexOf(' ');
+      String head = input.substring(0, spaceIdx);
+      String rest = input.substring(spaceIdx + 1);
 
-      const byte dotIdx = head.indexOf('.');
+      int dotIdx = head.indexOf('.');
       target = head.substring(0, dotIdx);
       command = head.substring(dotIdx + 1);
 
       // buat parameter
-      byte start = 0;
+      int start = 0;
       while (true) {
-        const byte sp = rest.indexOf(' ', start);
+        int sp = rest.indexOf(' ', start);
         if (sp == -1) {
           String param = rest.substring(start);
           if (param.length()) params.push_back(param);
@@ -1935,16 +1984,20 @@ class CommandHandler {
 
     // target.command  param1 param2 p...
     bool execute(const String rawCommand) {
-    if (!commandCheck(rawCommand)) return false;
-    parse(rawCommand);
-    Serial.println("=== EXECUTING COMMAND ===");
-    Serial.println("Target : " + target);
-    Serial.println("Command: " + command);
-    for (int i = 0; i < params.size(); i++) {
-      Serial.println("Param[" + String(i) + "]: " + params[i]);
-    }
+      // debug
+      Serial.println("ab");
+      if (!commandCheck(rawCommand)) return false;
+      // debug
+      Serial.println("wp");
+      parse(rawCommand);
+      Serial.println("=== EXECUTING COMMAND ===");
+      Serial.println("Target : " + target);
+      Serial.println("Command: " + command);
+      for (int i = 0; i < params.size(); i++) {
+        Serial.println("Param[" + String(i) + "]: " + params[i]);
+      }
 
-    if (target == "wifi") {  // wifi
+      if (target == "wifi") {  // wifi
       if (command == "getRssi") {
         long rssi = WiFi.RSSI();
         output(String(rssi), isSerialCommand);
@@ -2051,12 +2104,12 @@ class CommandHandler {
         output(unknownCommand, isSerialCommand);
       }
     } else if (target == "buzzer") {  // Buzzer
-      if (command == "playNote") {
-        int playNote = params[0].toInt();
-        tone(buzzerPin, playNote);
+      if (command == "playTone") {
+        int playtone = params[0].toInt();
+        tone(buzzerPin, playtone);
         delay(params[1].toInt());
         noTone(buzzerPin);
-        output("buzzer note complete running", isSerialCommand);
+        output("buzzer tone complete running", isSerialCommand);
       } else if (command == enable) {
         bool enableBuzzer2 = true;
         if (params[0] == trueVal) {
@@ -2314,7 +2367,9 @@ class CommandHandler {
   }
 
   bool commandCheck(const String& checkCommand) {
-    return (checkCommand.indexOf('.') != -1 && checkCommand.length() >= 5);
+    Serial.println("chk1"); // debug
+    return (checkCommand.indexOf('.') != -1 == true && checkCommand.length() >= 5 == true);
+    Serial.println("chk2"); // debug
   }
 };
 CommandHandler commandHandler;
@@ -2454,7 +2509,7 @@ void loop() {
   button();
   tiltSensor();
   potentiometer();
-  if (webServerIsActive) server.handleClient();
+  webserver.handle();
   if (currentTime == "00:00") ESP.deepSleepMax(); // deepsleep
   if ((fbdConnected = firebaseHandler.start() ) ) fbdConnected = Firebase.ready(); // cek apakah sudah signup firebase
 
