@@ -33,8 +33,9 @@ Semua perubahan penting pada proyek ini akan didokumentasikan di sini
 - command playNote -> playTone
 - hapus semua pemanggilan func untuk mematikan mode AP
 
-
-
+## [v1.2.8] - 09-08-2025
+### Changed
+- hapus semua yang berkaitan dangan ota, AP, dan webserver
 
 
 

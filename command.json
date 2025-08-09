@@ -21,10 +21,12 @@
   },
   "servo": {
     "setMinAngle": ["angle"],
+    "setMaxAngle": ["angle"],
     "setOpenDelay": ["delay (milli second)"],
     "setCloseDelay": ["delay (milli second)"],
     "setAngle": ["angle"],
-    "enable": ["true/false"]
+    "enable": ["true/false"],
+    "state": ["true/false"]
   },
   "buzzer": {
     "playTone": ["tone", "duration"],
@@ -32,8 +34,8 @@
     "playMelody": ["melody"]
   },
   "eeprom": {
-    "get": [],
-    "getAll": [],
+    "getData": [],
+    "getAllData": [],
     "writeString": ["address", "string"],
     "writeInterger": ["address", "value"]
   },
@@ -61,6 +63,9 @@
   },
   "serial": {
     "enablePrint": ["true/false"]
+  },
+  "ntp": {
+    "getCompleteTime": []
   },
   "feedo": {
     "appLock" : ["true/false"],

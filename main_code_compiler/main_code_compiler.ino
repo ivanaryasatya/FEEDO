@@ -18,7 +18,7 @@
   Sketch created by: Ivan Aryasatya
   Webserver IP: http://192.168.4.1/
   Site: https://feedo.fardhan.com/
-  Version: 1.2.6
+  Version: 1.2.7
 
 */
 #include <Arduino.h>
@@ -37,7 +37,6 @@
 #include <Firebase_ESP_Client.h>
 #include "addons/TokenHelper.h"
 #include "addons/RTDBHelper.h"
-#include <ESP8266WebServer.h>
 #include <firebase_secret.h>
 
 #define API_KEY ""
@@ -62,7 +61,6 @@ FirebaseAuth auth;
 FirebaseConfig config;
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, "pool.ntp.org");
-ESP8266WebServer server(80); // Port HTTP
 
 byte
   potPin = A0,
@@ -105,12 +103,9 @@ bool
   fbdConnected = false,
   lastStart = true,
   lastWifiStatus = false,
-  otaIsActive = false,
   codeMarkerPrint = false,
   enableTiltSensor = true,
-  webServerIsActive = false,
   wifiHasChanged = false,
-  userActivatedWebServer = false,
   isSerialCommand = false,
   tiltSensorState = false
 ;
@@ -187,134 +182,134 @@ IPAddress local_ip(192, 168, 4, 1);       // IP untuk ESP8266 (default: 192.168.
 IPAddress gateway(192, 168, 4, 1);        // Gateway
 IPAddress subnet(255, 255, 255, 0);       // Subnet mask
 
-static const char main_page[] PROGMEM = R"=====(
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <title>FEEDO Control Panel</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #f2f2f2;
-      padding: 20px;
-      max-width: 500px;
-      margin: auto;
-    }
+// static const char main_page[] PROGMEM = R"=====(
+// <!DOCTYPE html>
+// <html>
+// <head>
+//   <meta charset="UTF-8">
+//   <title>FEEDO Control Panel</title>
+//   <style>
+//     body {
+//       font-family: Arial, sans-serif;
+//       background: #f2f2f2;
+//       padding: 20px;
+//       max-width: 500px;
+//       margin: auto;
+//     }
 
-    a.top-link {
-      display: block;
-      text-align: center;
-      margin-bottom: 20px;
-      font-size: 14px;
-      text-decoration: none;
-      color: #0066cc;
-    }
+//     a.top-link {
+//       display: block;
+//       text-align: center;
+//       margin-bottom: 20px;
+//       font-size: 14px;
+//       text-decoration: none;
+//       color: #0066cc;
+//     }
 
-    a.top-link:hover {
-      text-decoration: underline;
-    }
+//     a.top-link:hover {
+//       text-decoration: underline;
+//     }
 
-    h2 {
-      color: #333;
-      text-align: center;
-    }
+//     h2 {
+//       color: #333;
+//       text-align: center;
+//     }
 
-    .section {
-      background: #fff;
-      border-radius: 10px;
-      padding: 15px 20px;
-      margin-bottom: 20px;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-    }
+//     .section {
+//       background: #fff;
+//       border-radius: 10px;
+//       padding: 15px 20px;
+//       margin-bottom: 20px;
+//       box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+//     }
 
-    label {
-      display: block;
-      margin-top: 10px;
-      font-weight: bold;
-    }
+//     label {
+//       display: block;
+//       margin-top: 10px;
+//       font-weight: bold;
+//     }
 
-    input[type="text"],
-    input[type="password"] {
-      width: 100%;
-      padding: 8px;
-      margin-top: 5px;
-      border: 1px solid #ccc;
-      border-radius: 6px;
-    }
+//     input[type="text"],
+//     input[type="password"] {
+//       width: 100%;
+//       padding: 8px;
+//       margin-top: 5px;
+//       border: 1px solid #ccc;
+//       border-radius: 6px;
+//     }
 
-    textarea {
-      width: 100%;
-      height: 80px;
-      padding: 8px;
-      margin-top: 5px;
-      border: 1px solid #ccc;
-      border-radius: 6px;
-      resize: vertical;
-    }
+//     textarea {
+//       width: 100%;
+//       height: 80px;
+//       padding: 8px;
+//       margin-top: 5px;
+//       border: 1px solid #ccc;
+//       border-radius: 6px;
+//       resize: vertical;
+//     }
 
-    .checkbox-group {
-      margin-top: 10px;
-    }
+//     .checkbox-group {
+//       margin-top: 10px;
+//     }
 
-    .checkbox-group input {
-      margin-right: 10px;
-    }
+//     .checkbox-group input {
+//       margin-right: 10px;
+//     }
 
-    button {
-      margin-top: 15px;
-      width: 100%;
-      padding: 10px;
-      background-color: #4CAF50;
-      border: none;
-      color: white;
-      font-size: 16px;
-      border-radius: 6px;
-      cursor: pointer;
-    }
+//     button {
+//       margin-top: 15px;
+//       width: 100%;
+//       padding: 10px;
+//       background-color: #4CAF50;
+//       border: none;
+//       color: white;
+//       font-size: 16px;
+//       border-radius: 6px;
+//       cursor: pointer;
+//     }
 
-    button:hover {
-      background-color: #45a049;
-    }
-  </style>
-</head>
-<body>
-  <a class="top-link" href="feedo.fardhan.com" target="_blank">
-    🔗 Go to main website (Feedo)
-  </a>
+//     button:hover {
+//       background-color: #45a049;
+//     }
+//   </style>
+// </head>
+// <body>
+//   <a class="top-link" href="feedo.fardhan.com" target="_blank">
+//     🔗 Go to main website (Feedo)
+//   </a>
 
-  <h2>FEEDO Control Panel</h2>
+//   <h2>FEEDO Control Panel</h2>
 
-  <form action="/action_page" method="POST">
-    <div class="section">
-      <h3>Input / Output</h3>
-      <label for="systemOutput">System Output:</label>
-      <div style="display: flex; align-items: center;">
-      <textarea id="systemOutput" name="systemOutput" readonly style="margin-right: auto;">Waiting for response...</textarea>
-      </div>
-      <label for="commandInput">Command Input:</label>
-      <input type="text" id="commandInput" name="commandInput" placeholder="Enter command">
-    </div>
+//   <form action="/action_page" method="POST">
+//     <div class="section">
+//       <h3>Input / Output</h3>
+//       <label for="systemOutput">System Output:</label>
+//       <div style="display: flex; align-items: center;">
+//       <textarea id="systemOutput" name="systemOutput" readonly style="margin-right: auto;">Waiting for response...</textarea>
+//       </div>
+//       <label for="commandInput">Command Input:</label>
+//       <input type="text" id="commandInput" name="commandInput" placeholder="Enter command">
+//     </div>
 
-    <div class="section">
-      <h3>WiFi Settings</h3>
-      <label for="ssid">WiFi SSID:</label>
-      <input type="text" id="ssid" name="ssid" placeholder="My WiFi SSID">
+//     <div class="section">
+//       <h3>WiFi Settings</h3>
+//       <label for="ssid">WiFi SSID:</label>
+//       <input type="text" id="ssid" name="ssid" placeholder="My WiFi SSID">
 
-      <label for="password">WiFi Password:</label>
-      <input type="password" id="password" name="password" placeholder="My WiFi Password">
+//       <label for="password">WiFi Password:</label>
+//       <input type="password" id="password" name="password" placeholder="My WiFi Password">
 
-      <div class="checkbox-group">
-      <input type="checkbox" id="disconnect" name="disconnect">
-      <label for="disconnect" style="display: inline;">Disconnect webserver if new WiFi is connected</label>
-      </div>
-    </div>
+//       <div class="checkbox-group">
+//       <input type="checkbox" id="disconnect" name="disconnect">
+//       <label for="disconnect" style="display: inline;">Disconnect webserver if new WiFi is connected</label>
+//       </div>
+//     </div>
 
-    <button type="submit">Apply Settings</button>
-  </form>
-</body>
-</html>
-)=====";
+//     <button type="submit">Apply Settings</button>
+//   </form>
+// </body>
+// </html>
+// )=====";
 
 // --------------------------------- functions ---------------------------------//
 
@@ -1281,133 +1276,133 @@ class EepromManager {
 EepromManager eepromManager;
 
 // wifiAp.begin(); akan mengaktifkan AP mode
-class WifiAp {
-  public:
-    bool apHasStarted = false;
-    bool status = false;
+// class WifiAp {
+//   public:
+//     bool apHasStarted = false;
+//     bool status = false;
 
-    void begin() {
-      if (!status && !apHasStarted) {
-        Serial.println("turning on AP mode");
-        WiFi.mode(WIFI_AP_STA);
-        WiFi.softAP(APSsid, APPassword);
-        wait(500);
-        status = true;
-        apHasStarted = true;
+//     void begin() {
+//       if (!status && !apHasStarted) {
+//         Serial.println("turning on AP mode");
+//         WiFi.mode(WIFI_AP_STA);
+//         WiFi.softAP(APSsid, APPassword);
+//         wait(500);
+//         status = true;
+//         apHasStarted = true;
 
-        Serial.print("AP status: ");
-        Serial.println(status);
-        Serial.print("SSID: ");
-        Serial.println(APSsid);
-        Serial.print("password: ");
-        Serial.println(APPassword);
-        Serial.print("AP IP: ");
-        Serial.println(WiFi.softAPIP());
+//         Serial.print("AP status: ");
+//         Serial.println(status);
+//         Serial.print("SSID: ");
+//         Serial.println(APSsid);
+//         Serial.print("password: ");
+//         Serial.println(APPassword);
+//         Serial.print("AP IP: ");
+//         Serial.println(WiFi.softAPIP());
 
-      }
-    }
-    void end() {
-      if (status) {
-        Serial.println("turning off AP mode");
-        WiFi.softAPdisconnect(true);
-        status = false;
-        apHasStarted = false;
-      }
-    }
-    bool hasConnectedDevice() {
-      return WiFi.softAPgetStationNum() > 0;
-    }
-};
-WifiAp wifiAp;
+//       }
+//     }
+//     void end() {
+//       if (status) {
+//         Serial.println("turning off AP mode");
+//         WiFi.softAPdisconnect(true);
+//         status = false;
+//         apHasStarted = false;
+//       }
+//     }
+//     bool hasConnectedDevice() {
+//       return WiFi.softAPgetStationNum() > 0;
+//     }
+// };
+// WifiAp wifiAp;
 
-bool webserverHasStarted = false;
-bool webserverEndRequest = false;
+// bool webserverHasStarted = false;
+// bool webserverEndRequest = false;
 // webserver handler
 // HTTP example: http://192.168.4.1/ESP?command=<feedo.feeding.2>
-class WebServer {
-  public:
-    // true = memulai webserver, menayalakn ap mode, memulai akan otomastis hanya sekali dipanggil
-    // false = menghentikan webserver, menonaktifkan ap mode, menghentikan akan otomastis hanya sekali dipanggil
-    void begin() {
-      static bool webServerHasStoped = true;
+// class WebServer {
+//   public:
+//     // true = memulai webserver, menayalakn ap mode, memulai akan otomastis hanya sekali dipanggil
+//     // false = menghentikan webserver, menonaktifkan ap mode, menghentikan akan otomastis hanya sekali dipanggil
+//     void begin() {
+//       static bool webServerHasStoped = true;
 
-      if (!webserverHasStarted) {
-        // wifiAp.begin();
-        // WiFi.softAP(APSsid, APPassword);
-        wifiAp.status = true;
-        wait(500);
+//       if (!webserverHasStarted) {
+//         // wifiAp.begin();
+//         // WiFi.softAP(APSsid, APPassword);
+//         wifiAp.status = true;
+//         wait(500);
 
-        Serial.println("Starting webserver...");
-        webserverEndRequest = webServerHasStoped = false;
-        webServerIsActive = true;
-        server.on("/", handleRoot);
-        server.on("/action_page", handleForm);
+//         Serial.println("Starting webserver...");
+//         webserverEndRequest = webServerHasStoped = false;
+//         webServerIsActive = true;
+//         server.on("/", handleRoot);
+//         server.on("/action_page", handleForm);
 
-        server.on("/pesan", []() {
-          if (server.hasArg("command")) {
-            String messages = server.arg("isi");
-            Serial.println("Pesan diterima: " + messages);
-            server.send(200, "text/plain", "Pesan diterima: " + messages);
-          } else {
-            server.send(400, "text/plain", "Parameter 'isi' tidak ditemukan");
-          }
-        });
-        server.begin();
-        webserverHasStarted = true;
-      }
-    }
+//         server.on("/pesan", []() {
+//           if (server.hasArg("command")) {
+//             String messages = server.arg("isi");
+//             Serial.println("Pesan diterima: " + messages);
+//             server.send(200, "text/plain", "Pesan diterima: " + messages);
+//           } else {
+//             server.send(400, "text/plain", "Parameter 'isi' tidak ditemukan");
+//           }
+//         });
+//         server.begin();
+//         webserverHasStarted = true;
+//       }
+//     }
 
-    void handle() {
-      if (webServerIsActive) server.handleClient();
-      if (isWifiConnect && webServerIsActive) {
-        static unsigned long apStartTime = 0;
-        static bool apTimerStarted = false;
-        if (wifiAp.hasConnectedDevice()) {
-          apTimerStarted = true;
-          apStartTime = millis();
-        } else {
-          if (apTimerStarted && millis() - apStartTime >= 180000) {
-            Serial.println("No AP clients for 3 minutes, disabling webserver...");
-            end();
-            apTimerStarted = false;
-            apStartTime = millis();
-          }
-        }
-      }
-      if (webserverEndRequest) end();
-    }
+//     void handle() {
+//       if (webServerIsActive) server.handleClient();
+//       if (isWifiConnect && webServerIsActive) {
+//         static unsigned long apStartTime = 0;
+//         static bool apTimerStarted = false;
+//         if (wifiAp.hasConnectedDevice()) {
+//           apTimerStarted = true;
+//           apStartTime = millis();
+//         } else {
+//           if (apTimerStarted && millis() - apStartTime >= 180000) {
+//             Serial.println("No AP clients for 3 minutes, disabling webserver...");
+//             end();
+//             apTimerStarted = false;
+//             apStartTime = millis();
+//           }
+//         }
+//       }
+//       if (webserverEndRequest) end();
+//     }
 
-    void end() {
-      webserverEndRequest = true;
-      if (webserverEndRequest && isWifiConnect && !wifiAp.hasConnectedDevice() && webServerIsActive) {
-        webserverEndRequest = false;
-        webserverHasStarted = false;
-        webServerIsActive = false;
-        server.stop();
-        // wifiAp.end();
-        Serial.println("Webserver stopped");
-      }
+//     void end() {
+//       webserverEndRequest = true;
+//       if (webserverEndRequest && isWifiConnect && !wifiAp.hasConnectedDevice() && webServerIsActive) {
+//         webserverEndRequest = false;
+//         webserverHasStarted = false;
+//         webServerIsActive = false;
+//         server.stop();
+//         // wifiAp.end();
+//         Serial.println("Webserver stopped");
+//       }
 
-    }
+//     }
 
-    static void handleForm() {
-      String newWifiSsid_debug = server.arg("lastname");
-      String newWifiPassword_debug = server.arg("password");
-      String command_debug = server.arg("commandInput");
-      bool reconnectNewWifi_debug = server.hasArg("disconnect");
-      Serial.println("New Wi-Fi SSID: " + newWifiSsid_debug);
-      Serial.println("New Wi-Fi Password: " + newWifiPassword_debug);
-      Serial.println("Command: " + command_debug);
-      Serial.println("Reconnect to new Wi-Fi: " + String(reconnectNewWifi_debug ? trueVal : falseVal));
-    }
+//     static void handleForm() {
+//       String newWifiSsid_debug = server.arg("lastname");
+//       String newWifiPassword_debug = server.arg("password");
+//       String command_debug = server.arg("commandInput");
+//       bool reconnectNewWifi_debug = server.hasArg("disconnect");
+//       Serial.println("New Wi-Fi SSID: " + newWifiSsid_debug);
+//       Serial.println("New Wi-Fi Password: " + newWifiPassword_debug);
+//       Serial.println("Command: " + command_debug);
+//       Serial.println("Reconnect to new Wi-Fi: " + String(reconnectNewWifi_debug ? trueVal : falseVal));
+//     }
 
-    static void handleRoot() {
-      String s = main_page;
-      server.send(200, "text/html", s);
-    }
+//     static void handleRoot() {
+//       String s = main_page;
+//       server.send(200, "text/html", s);
+//     }
 
-};
-WebServer webserver;
+// };
+// WebServer webserver;
 // wifi handler
 class WifiHandler {
   private:
@@ -1456,9 +1451,6 @@ class WifiHandler {
       if (WiFi.status() == WL_CONNECTED) { // koneksi berhasil
         isWifiConnect = true;
         OOOOOOOOOO_codeMarker(16);
-        // debug
-        webserver.end();
-        // wifiAp.end();
         if (onceWifiStatusTask) {
           digitalWrite(LED_BUILTIN, LOW);
           delay(200);
@@ -1481,19 +1473,12 @@ class WifiHandler {
         OOOOOOOOOO_codeMarker(17);
         isWifiConnect = false;
         onceWifiStatusTask = true;
-        webserver.begin();
         static unsigned long lastReconnect = 0;
-        if (!otaIsActive && millis() - lastReconnect > 60000 && WiFi.status() != WL_CONNECTED) {
-          if (!wifiAp.hasConnectedDevice()) {
+        if (millis() - lastReconnect > 60000 && WiFi.status() != WL_CONNECTED) { // coba koneksi
             OOOOOOOOOO_codeMarker(18);
             Serial.println("Trying to reconnect to Wi-Fi...");
             lastReconnect = millis();
             startConnect();
-          } else {
-            Serial.println("Cannot attempt reconnect, there is a device connected in AP mode");
-            lastReconnect = millis();
-          }
-
         }
         if (wifiHasChanged) {
           Firebase.RTDB.setString(&fbdo, "/command/output", "failed to connect to new WiFi");
@@ -1808,92 +1793,92 @@ String getAllEeprom() {
 
 
 // handle OTA
-class OtaHandler {
-  private:
-    unsigned long lastBlink = 0;
-    bool ledState = false;
-    bool otaHasEnded = true;
-    bool otaInitialized = false;
+// class OtaHandler {
+//   private:
+//     unsigned long lastBlink = 0;
+//     bool ledState = false;
+//     bool otaHasEnded = true;
+//     bool otaInitialized = false;
 
-  public:
+//   public:
 
-    // auto handle saat dinyalakan atau dimatikan
-    void autoHandle() {
-      if (!otaIsActive) {
-        return;
-      }
-      ArduinoOTA.handle();
-      if (millis() - lastBlink >= 500) {
-        ledState = !ledState;
-        digitalWrite(LED_BUILTIN, ledState ? HIGH : LOW);
-        lastBlink = millis();
-      }
+//     // auto handle saat dinyalakan atau dimatikan
+//     void autoHandle() {
+//       if (!otaIsActive) {
+//         return;
+//       }
+//       ArduinoOTA.handle();
+//       if (millis() - lastBlink >= 500) {
+//         ledState = !ledState;
+//         digitalWrite(LED_BUILTIN, ledState ? HIGH : LOW);
+//         lastBlink = millis();
+//       }
 
-    }
+//     }
 
-    // start: mulai ota
-    void start() {
-      if (!otaInitialized) {
-        otaHasEnded = false;
-        //wifiAp.begin();
-        // WiFi.softAP(APSsid, APPassword);
-        // wifiAp.status = true;
-        wait(500);
+//     // start: mulai ota
+//     void start() {
+//       if (!otaInitialized) {
+//         otaHasEnded = false;
+//         //wifiAp.begin();
+//         // WiFi.softAP(APSsid, APPassword);
+//         // wifiAp.status = true;
+//         wait(500);
 
-        ArduinoOTA.onStart([]() {
-          String type;
-          if (ArduinoOTA.getCommand() == U_FLASH) {
-            type = "sketch";
-          } else {
-            type = "filesystem";
-          }
-          Serial.println("Start updating " + type);
-        });
-        ArduinoOTA.onEnd([]() {
-          Serial.println("\nEnd");
-        });
-        ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
-          Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
-        });
-        ArduinoOTA.onError([](ota_error_t error) {
-          Serial.printf("Error[%u]: ", error);
-          if (error == OTA_AUTH_ERROR) {
-            Serial.println("Auth Failed");
-          } else if (error == OTA_BEGIN_ERROR) {
-            Serial.println("Begin Failed");
-          } else if (error == OTA_CONNECT_ERROR) {
-            Serial.println("Connect Failed");
-          } else if (error == OTA_RECEIVE_ERROR) {
-            Serial.println("Receive Failed");
-          } else if (error == OTA_END_ERROR) {
-            Serial.println("End Failed");
-          }
-        });
-        ArduinoOTA.begin();
-        Serial.println("OTA is ready");
-        otaIsActive = otaInitialized = true;
-        OOOOOOOOOO_codeMarker(2);
-      }
+//         ArduinoOTA.onStart([]() {
+//           String type;
+//           if (ArduinoOTA.getCommand() == U_FLASH) {
+//             type = "sketch";
+//           } else {
+//             type = "filesystem";
+//           }
+//           Serial.println("Start updating " + type);
+//         });
+//         ArduinoOTA.onEnd([]() {
+//           Serial.println("\nEnd");
+//         });
+//         ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+//           Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
+//         });
+//         ArduinoOTA.onError([](ota_error_t error) {
+//           Serial.printf("Error[%u]: ", error);
+//           if (error == OTA_AUTH_ERROR) {
+//             Serial.println("Auth Failed");
+//           } else if (error == OTA_BEGIN_ERROR) {
+//             Serial.println("Begin Failed");
+//           } else if (error == OTA_CONNECT_ERROR) {
+//             Serial.println("Connect Failed");
+//           } else if (error == OTA_RECEIVE_ERROR) {
+//             Serial.println("Receive Failed");
+//           } else if (error == OTA_END_ERROR) {
+//             Serial.println("End Failed");
+//           }
+//         });
+//         ArduinoOTA.begin();
+//         Serial.println("OTA is ready");
+//         otaIsActive = otaInitialized = true;
+//         OOOOOOOOOO_codeMarker(2);
+//       }
 
-    }
+//     }
 
-    // end: hentikan ota
-    void end() {
-      Serial.println("ending OTA");
-      otaIsActive = otaInitialized = false;
-      if (!otaHasEnded) {
-        digitalWrite(LED_BUILTIN, HIGH);
-        ArduinoOTA.end();
-        if (!webServerIsActive) {
-          wifiAp.end();
-          otaHasEnded = true;
-        }
-      }
-    }
+//     // end: hentikan ota
+//     void end() {
+//       Serial.println("ending OTA");
+//       otaIsActive = otaInitialized = false;
+//       if (!otaHasEnded) {
+//         digitalWrite(LED_BUILTIN, HIGH);
+//         ArduinoOTA.end();
+//         if (!webServerIsActive) {
+//           wifiAp.end();
+//           otaHasEnded = true;
+//         }
+//       }
+//     }
 
 
-};
-OtaHandler otaHandler;
+// };
+// OtaHandler otaHandler;
 
 class CommandHandler {
   public:
@@ -2104,12 +2089,12 @@ class CommandHandler {
         output(unknownCommand, isSerialCommand);
       }
     } else if (target == "buzzer") {  // Buzzer
-      if (command == "playNote") {
-        int playNote = params[0].toInt();
-        tone(buzzerPin, playNote);
+      if (command == "playTone") {
+        int playtone = params[0].toInt();
+        tone(buzzerPin, playtone);
         delay(params[1].toInt());
         noTone(buzzerPin);
-        output("buzzer note complete running", isSerialCommand);
+        output("buzzer tone complete running", isSerialCommand);
       } else if (command == enable) {
         bool enableBuzzer2 = true;
         if (params[0] == trueVal) {
@@ -2150,7 +2135,7 @@ class CommandHandler {
       }
 
     } else if (target == "eeprom") {  // Eeprom
-      if (command == "get") {
+      if (command == "getData") {
         int intValues = params[0].toInt();
         if (intValues != wifiSsidAddr && intValues != wifiPasswordAddr) {
           output(String(eepromManager.getData(params[0].toInt(), false)), isSerialCommand);
@@ -2281,36 +2266,6 @@ class CommandHandler {
           output(trueVal, isSerialCommand);
         } else {
           output(falseVal, isSerialCommand);
-        }
-      } else {
-        output(unknownCommand, isSerialCommand);
-      }
-    } else if (target == "ota") {
-      if (command == "run") {
-        if (params[0] == trueVal) {
-          output("OTA start", isSerialCommand);
-          otaHandler.start();
-        } else if (params[0] == falseVal) {
-          otaHandler.end();
-          output("OTA ended", isSerialCommand);
-        } else {
-          output(wrongBoolValue, isSerialCommand);
-        }
-      } else {
-        output(unknownCommand, isSerialCommand);
-      }
-
-
-    } else if (target == "webserver") {
-      if (command == "run") {
-        if (params[0] == trueVal) {
-          webServerIsActive = true;
-          output("webserver started", isSerialCommand);
-        } else if (params[0] == falseVal) {
-          webServerIsActive = false;
-          output("webserver ended", isSerialCommand);
-        } else {
-          output(wrongBoolValue, isSerialCommand);
         }
       } else {
         output(unknownCommand, isSerialCommand);
@@ -2505,11 +2460,10 @@ void loop() {
 
   // runtime tasks
   loopRate();
-  otaHandler.autoHandle();
   button();
   tiltSensor();
   potentiometer();
-  webserver.handle();
+  // webserver.handle();
   if (currentTime == "00:00") ESP.deepSleepMax(); // deepsleep
   if ((fbdConnected = firebaseHandler.start() ) ) fbdConnected = Firebase.ready(); // cek apakah sudah signup firebase
 
